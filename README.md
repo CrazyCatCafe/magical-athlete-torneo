@@ -9,7 +9,7 @@ App per il torneo «Magical Outlet» (varianti da torneo di Magical Athlete): og
 - **Gare 2–6**: ognuno sceglie dalla propria mano, a partire da chi ha più punti. Pari: prima chi ha fatto meno rutti e scoregge, poi chi ha usato la carta di livello più alto nella gara precedente; ancora pari: a caso.
 - **Megaround 2**: si rimischiano tutte le carte tranne quella rimasta a ognuno; 3 giri in cui si rivelano 6 carte e si sceglie una a testa, da chi ha meno punti (pari: meno rutti e scoregge).
 - In gara parte chi ha meno punti (pari: meno rutti e scoregge, poi si tira un dado). Il 1° prende una fiche oro coperta (3,4,4,5,5,6), il 2° una argento (1,1,2,2,2,3); le fiche bronzo (+1) si segnano dal telefono.
-- **Livelli che cambiano**: a fine gara la carta del 1° sale di un livello (max S), quella dell'ultimo scende di uno (min D); ultimo a pari merito: sorteggio.
+- **Livelli che cambiano**: a fine gara la carta del 1° sale di un livello (max S), quella dell'ultimo scende di uno (min D); ultimo a pari merito: sorteggio. I cambi di livello sono permanenti: valgono anche per le partite successive (si possono ripristinare dalle Impostazioni).
 - **Fine**: la carta rimasta in mano dà S/A +2, B/C +1, D 0. Parità finale: meno rutti e scoregge, poi più vittorie, poi più bronzi.
 - Il tasto **Rutti e scoregge** sul telefono fa partire un suono anche sul tablet, quando vuoi. Ogni pressione viene contata e pesa negli spareggi.
 

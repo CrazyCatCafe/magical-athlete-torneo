@@ -35,7 +35,10 @@ function setTier(o,n,t){for(var k=0;k<o.roster.length;k++)if(o.roster[k].n===n)o
 function shifted(t,d){var i=TLIST.indexOf(t||"D");if(i<0)i=0;return TLIST[Math.max(0,Math.min(4,i+d))];}
 function lastCands(r){return S.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});}
 function tierPreview(r){var out=[];var up=r.picks[r.w1],t=tierOf(up);if(t!=="S")out.push(esc(up)+' sale: '+(t||'D')+' → '+shifted(t,1));else out.push(esc(up)+' è già S');if(r.last!==null&&r.last!==undefined){var dn=r.picks[r.last],t2=tierOf(dn);out.push(t2!=="D"?esc(dn)+' scende: '+(t2||'D')+' → '+shifted(t2,-1):esc(dn)+' è già D');}return out;}
-var LASTSEL=[];
+var LASTSEL=[],GTIERS={};
+function tkey(n){return String(n).replace(/[^A-Za-z0-9]/g,"_");}
+function applyGlobalTiers(o){o.roster.forEach(function(x){var t=GTIERS[tkey(x.n)];if(t&&TRANK[t])x.t=t;});}
+function rosterTierMap(ro){var m={};ro.forEach(function(x){m[tkey(x.n)]=x.t||"D";});return m;}
 function trank(n){return TRANK[tierOf(n)]||0;}
 function tierBonus(n){var t=tierOf(n);return (t==="S"||t==="A")?2:(t==="D"?0:1);}
 function defState(){return {v:2,started:false,stage:"lobby",names:[],seat:[],roster:Core.parseRoster(DEF),settings:{gold:[3,4,4,5,5,6],silver:[1,1,2,2,2,3]},races:[],hands:[],d1:null,d2:null,gold:[],silver:[]};}
@@ -140,6 +143,9 @@ function makeLocalBackend(){
   watchFarts:function(c,cb){return watch("games/"+c+"/farts",function(v){cb(v||{});});},
   sendFart:function(c,key,data){var m=get("games/"+c+"/farts")||{};data.t=Date.now();data.c=((m[key]&&m[key].c)||0)+1;m[key]=data;put("games/"+c+"/farts",m);return Promise.resolve();},
   resetFarts:function(c){put("games/"+c+"/farts",{});return Promise.resolve();},
+  watchTiers:function(cb){return watch("global/tiers",function(v){cb(v||{});});},
+  shiftTier:function(key,from,d){var m=get("global/tiers")||{};m[key]=shifted(m[key]||from,d);put("global/tiers",m);return Promise.resolve();},
+  setTiers:function(map){put("global/tiers",map);return Promise.resolve();},
   watchConn:function(cb){cb(true);return function(){};}
  };
 }
@@ -162,6 +168,9 @@ function makeFirebaseBackend(cfg){
   watchFarts:function(c,cb){return on(r("games/"+c+"/farts"),function(v){cb(v||{});});},
   sendFart:function(c,key,data){data.t=Date.now();return r("games/"+c+"/farts/"+key).transaction(function(v){data.c=((v&&v.c)||0)+1;return data;});},
   resetFarts:function(c){return r("games/"+c+"/farts").remove();},
+  watchTiers:function(cb){return on(r("global/tiers"),function(v){cb(v||{});});},
+  shiftTier:function(key,from,d){return r("global/tiers/"+key).transaction(function(v){return shifted(v||from,d);});},
+  setTiers:function(map){return r("global/tiers").set(map);},
   watchConn:function(cb){var ref=db.ref(".info/connected");var h=ref.on("value",function(s){cb(!!s.val());});return function(){ref.off("value",h);};}
  };
 }
@@ -482,6 +491,7 @@ function vSet(){
  if(S.started)h+='<div class="st"><span class="lbl">Giocatori in ordine di posto</span><p style="margin:6px 0 0;font-weight:800">'+S.names.map(esc).join(" → ")+'</p></div>';
  h+='<div class="st"><div class="row" style="align-items:flex-start"><div class="grow"><label for="f_gold">Fiche oro (si pescano coperte)</label><input id="f_gold" value="'+s.gold.join(", ")+'"'+(locked?' disabled':'')+'></div><div class="grow"><label for="f_silver">Fiche argento</label><input id="f_silver" value="'+s.silver.join(", ")+'"'+(locked?' disabled':'')+'></div></div>'+(locked?'<p class="mut" style="margin:8px 0 0">Le fiche si cambiano solo prima della prima gara.</p>':'')+'</div>';
  h+='<div class="st"><label for="f_roster">Atleti: Nome | Livello (S, A, B, C, D) | Abilità facoltativa</label><textarea id="f_roster" style="min-height:280px">'+esc(Core.rosterText(S.roster))+'</textarea></div>';
+ h+='<div class="st"><div class="lbl">Livelli permanenti</div><p class="mut" style="margin:6px 0 10px">I livelli cambiano dopo ogni gara (chi vince sale, l\'ultimo scende) e restano salvati per tutte le partite future. Modificandoli qui sopra e salvando, cambi anche quelli salvati.</p><button type="button" class="btn sm alt" data-act="tierreset">Ripristina i livelli originali</button></div>';
  h+='<div><button type="button" class="btn big acc" data-act="save">Salva impostazioni</button></div>';
  if(S.started)h+='<div class="st"><h3 class="t" style="font-size:22px;margin-bottom:10px">Ricomincia</h3>'+(confirmReset?'<div class="row"><button type="button" class="btn acc" data-act="reset2">Sì, azzera i punti e ricomincia</button><button type="button" class="btn alt" data-act="reset0">No</button></div>':'<button type="button" class="btn alt" data-act="reset1">Azzera il torneo (tiene giocatori e atleti)</button>')+'</div>';
  return h+'</div>';
@@ -501,7 +511,7 @@ function vTut(){
  h+=step(2,'Draft · Megaround 1','<p class="tp">Ricevi <b>4 carte segrete</b>. Ne tieni <b>1</b> e passi le altre al giocatore seduto dopo di te; poi ricevi il mazzetto di chi ti sta prima. Si fanno 3 giri, l\'ultima carta arriva da sola: finisci con <b>4 carte in mano</b>.</p>','#ffe9a8');
  h+=step(3,'Quale carta giochi','<p class="tp"><b>Gara 1</b>: l\'app ti assegna una carta <b>a caso</b> dalla tua mano (non c\'è ancora un punteggio).</p><p class="tp"><b>Gare 2–6</b>: scegli tu dalla tua mano, uno alla volta, a partire da <b>chi ha più punti</b>. Le carte già scelte sono visibili a tutti, quindi chi sceglie dopo può contrastare. Parità di punti: sceglie prima chi ha fatto <b>meno rutti e scoregge</b>; poi chi nella gara precedente ha usato la carta di <b>livello più alto</b>; se ancora pari, decide il caso.</p>','#d9e6ff');
  h+=step(4,'La gara','<p class="tp">Si gioca con le regole normali di Magical Athlete: la gara finisce quando <b>due atleti</b> tagliano il traguardo.</p><p class="tp">Parte per primo <b>chi ha meno punti</b>, poi in senso orario. A parità di punti parte chi ha fatto <b>meno rutti e scoregge</b>; se ancora pari, <b>tirate un dado</b>: chi fa di più parte.</p>','#d2f6e3');
- h+=step(5,'I punti','<p class="tp"><b>1° posto</b>: una fiche oro coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(gold,"g")+'</div><p class="tp"><b>2° posto</b>: una fiche argento coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(silv,"s")+'</div><p class="tp"><b>I livelli cambiano</b>: alla fine di ogni gara la carta che ha <b>vinto sale di un livello</b> (fino a S) e quella <b>arrivata ultima scende di uno</b> (fino a D). Se più atleti sono pari all\'ultimo posto si sorteggia. I livelli contano negli spareggi e nel bonus finale.</p><p class="tp">Ogni fiche girata viene scartata: nelle 6 gare escono tutte, una volta sola.</p><p class="tp"><span class="mini-b">+1</span> <b>Bronzo</b>: ogni casella stella e ogni potere che dà punti (Hare, Lovable Loser, Sisyphus…) vale 1 punto. Lo segni tu con il tasto <b>+1 punto</b> sul telefono.</p>','#ffe1d8');
+ h+=step(5,'I punti','<p class="tp"><b>1° posto</b>: una fiche oro coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(gold,"g")+'</div><p class="tp"><b>2° posto</b>: una fiche argento coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(silv,"s")+'</div><p class="tp"><b>I livelli cambiano</b>: alla fine di ogni gara la carta che ha <b>vinto sale di un livello</b> (fino a S) e quella <b>arrivata ultima scende di uno</b> (fino a D). Se più atleti sono pari all\'ultimo posto si sorteggia. I livelli contano negli spareggi e nel bonus finale, e <b>restano cambiati per sempre</b>, anche nelle partite successive.</p><p class="tp">Ogni fiche girata viene scartata: nelle 6 gare escono tutte, una volta sola.</p><p class="tp"><span class="mini-b">+1</span> <b>Bronzo</b>: ogni casella stella e ogni potere che dà punti (Hare, Lovable Loser, Sisyphus…) vale 1 punto. Lo segni tu con il tasto <b>+1 punto</b> sul telefono.</p>','#ffe1d8');
  h+=step(6,'Draft · Megaround 2','<p class="tp">Dopo la gara 3 ti resta <b>1 carta</b>: la tieni. Tutte le altre carte si rimischiano. Per 3 volte si rivelano 6 carte e ognuno ne prende una, a partire da <b>chi ha meno punti</b> (a parità, chi ha fatto meno rutti e scoregge). Torni ad avere 4 carte e si giocano le gare 4, 5 e 6 come prima.</p>','#ffe9a8');
  h+=step(7,'Fine e bonus','<p class="tp">Dopo la gara 6 ti resta 1 carta: vale punti in più secondo il suo livello.</p><div class="row" style="gap:8px;margin:6px 0 10px"><span class="pill" style="background:#ff7a59">S +2</span><span class="pill" style="background:#ffe14d">A +2</span><span class="pill" style="background:#7fb2ff">B +1</span><span class="pill" style="background:#6fe0a3">C +1</span><span class="pill" style="background:#ff9fd2">D 0</span></div><p class="tp">Vince chi ha più punti. Parità: <b>meno rutti e scoregge</b>, poi più vittorie, poi più bronzi.</p>','#efe2ff');
  h+=step(8,'I tasti del telefono','<p class="tp"><b>Tocca a te</b>: il telefono suona e vibra quando devi scegliere.</p><p class="tp"><b>+1 punto</b>: per stelle e poteri, durante la gara. Sbagliato? C\'è il −1.</p><p class="tp"><b>Rutti e scoregge</b>: in basso, sempre disponibile. Lo sentono tutti, anche il tablet. Attenzione: <b>ogni pressione viene contata</b> e in tutti gli spareggi vince chi ne ha fatti di meno.</p>');
@@ -527,6 +537,7 @@ function render(){
  if(GAME&&GAME.role==="player"&&S)html+=fartBtn();
  if(GAME&&GAME.role==="banco")html=fartToast()+html;
  if(CONFIRM==="leave")html=html.replace(/(data-act="leave"[^>]*>)[^<]*</g,'$1Tocca ancora per uscire<');
+ if(CONFIRM==="tierreset")html=html.replace(/(data-act="tierreset"[^>]*>)[^<]*</g,'$1Tocca ancora per ripristinare<');
  if(CONFIRM==="abort")html=html.replace(/(data-act="abort"[^>]*>)[^<]*</g,'$1Tocca ancora: annullo la gara<');
  if(TUT)html+=vTut();
  a.innerHTML=html;
@@ -572,7 +583,7 @@ async function createGame(){
  try{
   var code=null;for(var k=0;k<8;k++){var c=newCode();if(!(await BE.exists(c))){code=c;break;}}
   if(!code)throw new Error("nessun codice libero");
-  await BE.create(code,JSON.stringify(defState()));
+  var ds=defState();applyGlobalTiers(ds);await BE.create(code,JSON.stringify(ds));
   GAME={code:code,role:"banco"};idSet("ma_game",GAME);TAB="live";msg="";connect();
  }catch(e){msg="Non riesco a creare la partita: "+(e.message||e);}
  BUSY=false;render();
@@ -622,7 +633,7 @@ document.getElementById("app").addEventListener("click",function(ev){
   commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;var c=sel.filter(function(p){return p!==r.w1&&p!==r.w2;});if(!c.length)return false;r.last=c[Math.floor(Math.random()*c.length)];r.lastDraw=c;}).then(function(){LASTSEL=[];render();});return;
  case "unlast":commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.last=null;r.lastDraw=null;});LASTSEL=[];return;
  case "reopen":
-  commit(function(o){var r=curOf(o);if(!r||!r.done)return false;if(o.races.length===3&&(o.d2done||o.stage==="draft2"))return false;(r.tchg||[]).slice().reverse().forEach(function(c){setTier(o,c.n,c.from);});r.tchg=null;r.done=false;if(o.stage==="end")o.stage="races";});return;
+  var RV=null;commit(function(o){RV=null;var r=curOf(o);if(!r||!r.done)return false;if(o.races.length===3&&(o.d2done||o.stage==="draft2"))return false;RV=(r.tchg||[]).slice();RV.slice().reverse().forEach(function(c){setTier(o,c.n,c.from);});r.tchg=null;r.done=false;if(o.stage==="end")o.stage="races";}).then(function(ok){if(ok&&RV)RV.forEach(function(c){BE.shiftTier(tkey(c.n),c.to,TRANK[c.to]>TRANK[c.from]?-1:1);});});return;
  case "showhand":SHOWHAND=SHOWHAND===I?null:I;render();return;
  case "plus":case "minus":
   var r1=cur();if(!r1||r1.done||phase(r1)==="sel"||typeof ME!=="number")return;var key=r1.id+"_"+ME;
@@ -638,7 +649,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "start":
   var order=lobbyNames();BE.resetFarts(GAME.code);
   commit(function(o){if(o.started||order.length<2)return false;if(o.settings.gold.length<RACES||o.settings.silver.length<RACES)return false;if(o.roster.length<order.length*4)return false;
-   o.names=order;o.started=true;o.races=[];o.gold=Core.shuffle(o.settings.gold,Math.random);o.silver=Core.shuffle(o.settings.silver,Math.random);dealD1(o);});return;
+   applyGlobalTiers(o);o.names=order;o.started=true;o.races=[];o.gold=Core.shuffle(o.settings.gold,Math.random);o.silver=Core.shuffle(o.settings.silver,Math.random);dealD1(o);});return;
  /* --- draft megaround 1 (simultaneo, a passaggio) --- */
  case "d1pick":
   var meI=typeof ME==="number"?ME:(ME==="banco"?W:null);if(meI===null||isNaN(meI))return;BUSY=typeof ME==="number";SHOWPACK=ME==="banco"?-1:null;render();
@@ -666,10 +677,10 @@ document.getElementById("app").addEventListener("click",function(ev){
   commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.bz[I]=Math.max(-extra,(r.bz[I]||0)+D);});
   if(D>0){funny();popAt(rb.id+"_"+I);}return;
  case "close":
-  commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;var others=o.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});if(others.length&&(r.last===null||r.last===undefined))return false;
+  var CH=null;commit(function(o){CH=null;var r=curOf(o);if(!r||r.w2===null||r.done)return false;var others=o.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});if(others.length&&(r.last===null||r.last===undefined))return false;
    r.tchg=[];var up=r.picks[r.w1],f1=tierIn(o,up),t1=shifted(f1,1);if(t1!==f1){setTier(o,up,t1);r.tchg.push({n:up,from:f1,to:t1});}
    if(r.last!==null&&r.last!==undefined){var dn=r.picks[r.last],f2=tierIn(o,dn),t2=shifted(f2,-1);if(t2!==f2){setTier(o,dn,t2);r.tchg.push({n:dn,from:f2,to:t2});}}
-   r.done=true;if(o.races.length===RACES)o.stage="end";});LASTSEL=[];return;
+   r.done=true;CH=r.tchg.slice();if(o.races.length===RACES)o.stage="end";}).then(function(ok){if(ok&&CH)CH.forEach(function(c){BE.shiftTier(tkey(c.n),c.from,TRANK[c.to]>TRANK[c.from]?1:-1);});});LASTSEL=[];return;
  case "abort":
   if(CONFIRM!=="abort"){askConfirm("abort");return;}CONFIRM=null;
   commit(function(o){var r=curOf(o);if(!r||r.done)return false;o.races.pop();Object.keys(r.picks).forEach(function(p){o.hands[p].push(r.picks[p]);});if(r.w1!==null&&r.g)o.gold.push(r.g);if(r.w2!==null&&r.s)o.silver.push(r.s);});return;
@@ -693,7 +704,10 @@ document.getElementById("app").addEventListener("click",function(ev){
    if(gl.length<RACES||sl.length<RACES){msg="Servono almeno "+RACES+" fiche oro e "+RACES+" argento.";render();return;}}
   var ro=Core.parseRoster(document.getElementById("f_roster").value);
   if(S.started){var used=[];S.hands.forEach(function(h){h.forEach(function(c){used.push(c);});});S.races.forEach(function(r){Object.keys(r.picks).forEach(function(k){used.push(r.picks[k]);});});var miss=used.filter(function(c){return !ro.some(function(x){return x.n===c;});});if(miss.length){msg="Non puoi togliere atleti già in gioco: "+miss.join(", ")+".";render();return;}}
-  commit(function(o){o.roster=ro;if(!(o.started&&o.races.length>0)&&gl){o.settings={gold:gl,silver:sl};if(o.started){o.gold=Core.shuffle(gl,Math.random);o.silver=Core.shuffle(sl,Math.random);}}}).then(function(ok){msg=ok?"Impostazioni salvate.":msg;render();});return;
+  BE.setTiers(rosterTierMap(ro));commit(function(o){o.roster=ro;if(!(o.started&&o.races.length>0)&&gl){o.settings={gold:gl,silver:sl};if(o.started){o.gold=Core.shuffle(gl,Math.random);o.silver=Core.shuffle(sl,Math.random);}}}).then(function(ok){msg=ok?"Impostazioni salvate.":msg;render();});return;
+ case "tierreset":
+  if(CONFIRM!=="tierreset"){askConfirm("tierreset");return;}CONFIRM=null;
+  var base=Core.parseRoster(DEF);BE.setTiers(rosterTierMap(base));commit(function(o){o.roster.forEach(function(x){var b0=base.filter(function(y){return y.n===x.n;})[0];if(b0)x.t=b0.t;});}).then(function(){msg="Livelli riportati a quelli originali.";render();});return;
  case "reset1":confirmReset=true;render();return;
  case "reset0":confirmReset=false;render();return;
  case "reset2":confirmReset=false;TAB="live";BE.resetFarts(GAME.code);commit(function(o){o.races=[];o.gold=Core.shuffle(o.settings.gold,Math.random);o.silver=Core.shuffle(o.settings.silver,Math.random);dealD1(o);});return;
@@ -708,6 +722,7 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&TUT){TUT=fa
  GAME=idGet("ma_game",null);
  var h=(location.hash||"").replace("#","").toUpperCase();
  if(GAME&&h&&/^[A-Z]{4}$/.test(h)&&h!==GAME.code)GAME=null;
+ BE.watchTiers(function(m){GTIERS=m||{};});
  if(GAME)connect();
  render();
 })();

@@ -7,6 +7,12 @@
         ".read": "$code.matches(/^[A-Z]{4}$/)",
         ".write": "$code.matches(/^[A-Z]{4}$/)"
       }
+    },
+    "global": {
+      "tiers": {
+        ".read": true,
+        ".write": true
+      }
     }
   }
 }
