@@ -29,6 +29,13 @@ function dot(i){return dotN(S.names,i);}
 */
 var RACES=6;
 var TRANK={S:5,A:4,B:3,C:2,D:1};
+var TLIST=["D","C","B","A","S"];
+function tierIn(o,n){for(var k=0;k<o.roster.length;k++)if(o.roster[k].n===n)return o.roster[k].t||"D";return "D";}
+function setTier(o,n,t){for(var k=0;k<o.roster.length;k++)if(o.roster[k].n===n)o.roster[k].t=t;}
+function shifted(t,d){var i=TLIST.indexOf(t||"D");if(i<0)i=0;return TLIST[Math.max(0,Math.min(4,i+d))];}
+function lastCands(r){return S.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});}
+function tierPreview(r){var out=[];var up=r.picks[r.w1],t=tierOf(up);if(t!=="S")out.push(esc(up)+' sale: '+(t||'D')+' → '+shifted(t,1));else out.push(esc(up)+' è già S');if(r.last!==null&&r.last!==undefined){var dn=r.picks[r.last],t2=tierOf(dn);out.push(t2!=="D"?esc(dn)+' scende: '+(t2||'D')+' → '+shifted(t2,-1):esc(dn)+' è già D');}return out;}
+var LASTSEL=[];
 function trank(n){return TRANK[tierOf(n)]||0;}
 function tierBonus(n){var t=tierOf(n);return (t==="S"||t==="A")?2:(t==="D"?0:1);}
 function defState(){return {v:2,started:false,stage:"lobby",names:[],seat:[],roster:Core.parseRoster(DEF),settings:{gold:[3,4,4,5,5,6],silver:[1,1,2,2,2,3]},races:[],hands:[],d1:null,d2:null,gold:[],silver:[]};}
@@ -40,7 +47,7 @@ function migrate(o){
  if(o.d1===undefined)o.d1=null;if(o.d2===undefined)o.d2=null;
  if(o.started===undefined)o.started=o.names.length>0;
  if(!o.stage||o.v!==2){o.v=2;if(!o.started)o.stage="lobby";else{o.stage="lobby";o.started=false;o.races=[];}}
- o.races.forEach(function(r){if(!r.picks)r.picks={};if(!r.bz)r.bz=o.names.map(function(){return 0;});if(r.w1===undefined)r.w1=null;if(r.w2===undefined)r.w2=null;});
+ o.races.forEach(function(r){if(!r.picks)r.picks={};if(!r.bz)r.bz=o.names.map(function(){return 0;});if(r.w1===undefined)r.w1=null;if(r.w2===undefined)r.w2=null;if(r.last===undefined)r.last=null;});
  if(o.d1){o.d1.packs=o.d1.packs||[];o.names.forEach(function(_,i){if(!o.d1.packs[i])o.d1.packs[i]=[];});o.d1.picked=o.d1.picked||[];}
  if(o.d2){o.d2.revealed=o.d2.revealed||[];o.d2.deck=o.d2.deck||[];o.d2.picks=o.d2.picks||{};o.d2.order=o.d2.order||[];}
  return o;
@@ -236,7 +243,7 @@ function stageInfo(){
  if(S.stage==="end")return {t:"Torneo finito",x:"La carta rimasta in mano dà punti bonus: S o A +2, B o C +1, D 0."};
  if(ph==="sel"){var who=r.order[nPicks(r)];return {t:"Gara "+k+" · scelta della carta",x:"Ognuno sceglie una carta dalla sua mano, da chi ha più punti. Ora sceglie "+S.names[who]+"."};}
  if(ph==="race")return {t:"Gara "+k+" in corso",x:startText(r)+" Premete +1 sul telefono per stelle e poteri."};
- if(ph==="result")return {t:"Gara "+k+" · arrivo",x:"Il banco registra 1° e 2° e gira le fiche."};
+ if(ph==="result")return {t:"Gara "+k+" · arrivo",x:"Il banco registra 1°, 2° e ultimo e gira le fiche. La carta che ha vinto sale di un livello, quella dell'ultimo scende di uno."};
  if(k===0)return {t:"Gara 1",x:"Il banco assegna a ognuno una carta a caso dalla sua mano."};
  if(k===3&&!S.d2done)return {t:"Fine del Megaround 1",x:"Ognuno tiene la carta rimasta. Il banco avvia il draft del Megaround 2."};
  return {t:"Prossima: gara "+(k+1),x:"Si sceglie la carta dalla propria mano, da chi ha più punti (pari: meno rutti e scoregge, poi livello della carta usata nella gara prima)."};
@@ -277,7 +284,7 @@ function vLive(){
  if(ph==="none"||ph==="done"){
   var mr2=k===3&&!S.d2done;
   h+='<div class="st row" style="gap:24px;align-items:center;padding:20px"><div class="grow stack" style="gap:8px"><span class="pill" style="align-self:flex-start">'+(mr2?'Fine Megaround 1':mega(k))+'</span><h2 class="t" style="font-size:36px">'+(mr2?'Pronti per il Megaround 2':(k===0?'Gara 1: carte a caso':'Gara '+(k+1)+': si sceglie'))+'</h2><div><button type="button" class="btn big acc" data-act="'+(mr2?'startd2':'newrace')+'">'+(mr2?'Avvia il draft del Megaround 2':(k===0?'Assegna le carte a caso':'Inizia la scelta della gara '+(k+1)))+'</button></div></div></div>';
-  if(r&&r.done){h+=lastResult(r,k-1);if(!(k===3&&S.d2done))h+='<p style="margin:10px 0 0"><button type="button" class="btn sm alt" data-act="reopen">Riapri la gara '+k+' per correggere</button></p>';}
+  if(r&&r.done){h+=lastResult(r,k-1);if(r.tchg&&r.tchg.length)h+='<div class="st msg" style="margin-top:12px"><div class="lbl">Livelli cambiati</div><div class="row" style="margin-top:6px">'+r.tchg.map(function(c){return '<span class="pill" style="background:'+(TC[c.to]||'#e9e9f2')+'">'+esc(c.n)+' '+c.from+' → '+c.to+(TRANK[c.to]>TRANK[c.from]?' ▲':' ▼')+'</span>';}).join("")+'</div></div>';if(!(k===3&&S.d2done))h+='<p style="margin:10px 0 0"><button type="button" class="btn sm alt" data-act="reopen">Riapri la gara '+k+' per correggere</button></p>';}
   h+='<div class="st" style="margin-top:18px"><h2 class="t" style="font-size:26px;margin-bottom:12px">Tabellone</h2>'+board()+'</div>';
   return h;
  }
@@ -318,8 +325,19 @@ function resultControls(r){
  }else if(r.w2===null){
   h+='<h3 class="t" style="font-size:26px;margin-bottom:10px">Chi è arrivato 2°?</h3><p class="mut" style="margin:0 0 10px">Si gira una fiche argento coperta e la gara finisce.</p><div class="row">'+S.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1;}).map(function(p){return '<button type="button" class="btn alt" data-act="w2" data-i="'+p+'">'+dot(p)+esc(S.names[p])+'</button>';}).join("")+'</div><p style="margin:12px 0 0"><button type="button" class="btn sm alt" data-act="unw">Annulla il 1°</button></p>';
  }else{
-  h+='<h3 class="t" style="font-size:24px;margin-bottom:6px">Gara finita!</h3><p class="mut" style="margin:0">Controllate i bronzi qui sopra, poi chiudete la gara.'+(k===RACES?' Chiudendo l\'ultima gara si rivelano le carte bonus.':'')+'</p>';
-  h+='<div class="row" style="margin-top:16px"><button type="button" class="btn alt" data-act="unw2">Annulla il 2°</button><span class="grow"></span><button type="button" class="btn big acc" data-act="close">Chiudi la gara</button></div>';
+  var cands=lastCands(r);
+  if(cands.length){
+   h+='<h3 class="t" style="font-size:26px;margin-bottom:6px">Chi è arrivato ultimo?</h3><p class="mut" style="margin:0 0 10px">La sua carta scende di un livello, quella del vincitore sale di uno. Se più atleti sono pari all\'ultimo posto, seleziona tutti e sorteggia.</p>';
+   h+='<div class="row">'+cands.map(function(p){var on=r.last===p||LASTSEL.indexOf(p)>=0;return '<button type="button" class="btn '+(r.last===p?'acc':(on?'yel':'alt'))+'" data-act="lastsel" data-i="'+p+'" aria-pressed="'+on+'">'+dot(p)+esc(S.names[p])+' · '+esc(r.picks[p])+'</button>';}).join("")+'</div>';
+   if(r.last===null||r.last===undefined){
+    if(LASTSEL.length===1)h+='<p style="margin:12px 0 0"><button type="button" class="btn acc" data-act="setlast">Ultimo: '+esc(S.names[LASTSEL[0]])+'</button></p>';
+    else if(LASTSEL.length>1)h+='<p style="margin:12px 0 0"><button type="button" class="btn acc" data-act="setlast">Pareggio: sorteggia tra '+LASTSEL.length+'</button></p>';
+   }else h+='<p style="margin:12px 0 0;font-weight:800">Ultimo: '+esc(S.names[r.last])+(r.lastDraw&&r.lastDraw.length>1?' (sorteggiato tra '+r.lastDraw.map(function(p){return esc(S.names[p]);}).join(", ")+')':'')+' <button type="button" class="btn sm alt" data-act="unlast">Cambia</button></p>';
+  }
+  var ready=!cands.length||(r.last!==null&&r.last!==undefined);
+  if(ready)h+='<div class="st msg" style="margin-top:14px;box-shadow:none"><div class="lbl">Livelli che cambiano</div><div style="font-weight:800">'+tierPreview(r).join(' · ')+'</div></div>';
+  h+='<h3 class="t" style="font-size:24px;margin:16px 0 6px">Gara finita!</h3><p class="mut" style="margin:0">Controllate i bronzi qui sopra, poi chiudete la gara.'+(k===RACES?' Chiudendo l\'ultima gara si rivelano le carte bonus.':'')+'</p>';
+  h+='<div class="row" style="margin-top:16px"><button type="button" class="btn alt" data-act="unw2">Annulla il 2°</button><span class="grow"></span><button type="button" class="btn big acc" data-act="close"'+(ready?'':' disabled title="Prima indica chi è arrivato ultimo"')+'>Chiudi la gara</button></div>';
  }
  return h+'</div>';
 }
@@ -374,7 +392,7 @@ function vPlayer(){
   return h+handRow(i)+'</div>';
  }
  if(ph==="none"||ph==="done"){
-  if(r&&r.done){var mine=raceScore(r,i);h+='<div class="st"><div class="lbl">Gara '+k+'</div><p style="margin:4px 0 0;font-weight:800">Con '+esc(r.picks[i])+' hai fatto '+mine+' punt'+(mine===1?'o':'i')+'.</p></div>';}
+  if(r&&r.done){var mine=raceScore(r,i);h+='<div class="st"><div class="lbl">Gara '+k+'</div><p style="margin:4px 0 0;font-weight:800">Con '+esc(r.picks[i])+' hai fatto '+mine+' punt'+(mine===1?'o':'i')+'.</p>'+(r.tchg&&r.tchg.length?'<p class="mut" style="margin:6px 0 0">Livelli cambiati: '+r.tchg.map(function(c){return esc(c.n)+' '+c.from+'→'+c.to;}).join(', ')+'</p>':'')+'</div>';}
   return h+infoBox()+handRow(i)+'</div>';
  }
  h+='<span class="pill" style="align-self:flex-start">'+mega(k-1)+'</span>';
@@ -483,7 +501,7 @@ function vTut(){
  h+=step(2,'Draft · Megaround 1','<p class="tp">Ricevi <b>4 carte segrete</b>. Ne tieni <b>1</b> e passi le altre al giocatore seduto dopo di te; poi ricevi il mazzetto di chi ti sta prima. Si fanno 3 giri, l\'ultima carta arriva da sola: finisci con <b>4 carte in mano</b>.</p>','#ffe9a8');
  h+=step(3,'Quale carta giochi','<p class="tp"><b>Gara 1</b>: l\'app ti assegna una carta <b>a caso</b> dalla tua mano (non c\'è ancora un punteggio).</p><p class="tp"><b>Gare 2–6</b>: scegli tu dalla tua mano, uno alla volta, a partire da <b>chi ha più punti</b>. Le carte già scelte sono visibili a tutti, quindi chi sceglie dopo può contrastare. Parità di punti: sceglie prima chi ha fatto <b>meno rutti e scoregge</b>; poi chi nella gara precedente ha usato la carta di <b>livello più alto</b>; se ancora pari, decide il caso.</p>','#d9e6ff');
  h+=step(4,'La gara','<p class="tp">Si gioca con le regole normali di Magical Athlete: la gara finisce quando <b>due atleti</b> tagliano il traguardo.</p><p class="tp">Parte per primo <b>chi ha meno punti</b>, poi in senso orario. A parità di punti parte chi ha fatto <b>meno rutti e scoregge</b>; se ancora pari, <b>tirate un dado</b>: chi fa di più parte.</p>','#d2f6e3');
- h+=step(5,'I punti','<p class="tp"><b>1° posto</b>: una fiche oro coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(gold,"g")+'</div><p class="tp"><b>2° posto</b>: una fiche argento coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(silv,"s")+'</div><p class="tp">Ogni fiche girata viene scartata: nelle 6 gare escono tutte, una volta sola.</p><p class="tp"><span class="mini-b">+1</span> <b>Bronzo</b>: ogni casella stella e ogni potere che dà punti (Hare, Lovable Loser, Sisyphus…) vale 1 punto. Lo segni tu con il tasto <b>+1 punto</b> sul telefono.</p>','#ffe1d8');
+ h+=step(5,'I punti','<p class="tp"><b>1° posto</b>: una fiche oro coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(gold,"g")+'</div><p class="tp"><b>2° posto</b>: una fiche argento coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(silv,"s")+'</div><p class="tp"><b>I livelli cambiano</b>: alla fine di ogni gara la carta che ha <b>vinto sale di un livello</b> (fino a S) e quella <b>arrivata ultima scende di uno</b> (fino a D). Se più atleti sono pari all\'ultimo posto si sorteggia. I livelli contano negli spareggi e nel bonus finale.</p><p class="tp">Ogni fiche girata viene scartata: nelle 6 gare escono tutte, una volta sola.</p><p class="tp"><span class="mini-b">+1</span> <b>Bronzo</b>: ogni casella stella e ogni potere che dà punti (Hare, Lovable Loser, Sisyphus…) vale 1 punto. Lo segni tu con il tasto <b>+1 punto</b> sul telefono.</p>','#ffe1d8');
  h+=step(6,'Draft · Megaround 2','<p class="tp">Dopo la gara 3 ti resta <b>1 carta</b>: la tieni. Tutte le altre carte si rimischiano. Per 3 volte si rivelano 6 carte e ognuno ne prende una, a partire da <b>chi ha meno punti</b> (a parità, chi ha fatto meno rutti e scoregge). Torni ad avere 4 carte e si giocano le gare 4, 5 e 6 come prima.</p>','#ffe9a8');
  h+=step(7,'Fine e bonus','<p class="tp">Dopo la gara 6 ti resta 1 carta: vale punti in più secondo il suo livello.</p><div class="row" style="gap:8px;margin:6px 0 10px"><span class="pill" style="background:#ff7a59">S +2</span><span class="pill" style="background:#ffe14d">A +2</span><span class="pill" style="background:#7fb2ff">B +1</span><span class="pill" style="background:#6fe0a3">C +1</span><span class="pill" style="background:#ff9fd2">D 0</span></div><p class="tp">Vince chi ha più punti. Parità: <b>meno rutti e scoregge</b>, poi più vittorie, poi più bronzi.</p>','#efe2ff');
  h+=step(8,'I tasti del telefono','<p class="tp"><b>Tocca a te</b>: il telefono suona e vibra quando devi scegliere.</p><p class="tp"><b>+1 punto</b>: per stelle e poteri, durante la gara. Sbagliato? C\'è il −1.</p><p class="tp"><b>Rutti e scoregge</b>: in basso, sempre disponibile. Lo sentono tutti, anche il tablet. Attenzione: <b>ogni pressione viene contata</b> e in tutti gli spareggi vince chi ne ha fatti di meno.</p>');
@@ -598,8 +616,13 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "tut":TUT=true;render();try{var tt=document.querySelector(".tut");if(tt){tt.scrollTop=0;var cb=tt.querySelector("[data-act=tutclose]");cb&&cb.focus();}}catch(e){}return;
  case "tutclose":TUT=false;render();return;
  case "showpack":if(I===-1)SHOWPACK=SHOWPACK===null?-1:null;else SHOWPACK=SHOWPACK===I?-1:I;render();return;
+ case "lastsel":var li=LASTSEL.indexOf(I);if(li>=0)LASTSEL.splice(li,1);else LASTSEL.push(I);render();return;
+ case "setlast":
+  var sel=LASTSEL.slice();if(!sel.length)return;
+  commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;var c=sel.filter(function(p){return p!==r.w1&&p!==r.w2;});if(!c.length)return false;r.last=c[Math.floor(Math.random()*c.length)];r.lastDraw=c;}).then(function(){LASTSEL=[];render();});return;
+ case "unlast":commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.last=null;r.lastDraw=null;});LASTSEL=[];return;
  case "reopen":
-  commit(function(o){var r=curOf(o);if(!r||!r.done)return false;if(o.races.length===3&&(o.d2done||o.stage==="draft2"))return false;r.done=false;if(o.stage==="end")o.stage="races";});return;
+  commit(function(o){var r=curOf(o);if(!r||!r.done)return false;if(o.races.length===3&&(o.d2done||o.stage==="draft2"))return false;(r.tchg||[]).slice().reverse().forEach(function(c){setTier(o,c.n,c.from);});r.tchg=null;r.done=false;if(o.stage==="end")o.stage="races";});return;
  case "showhand":SHOWHAND=SHOWHAND===I?null:I;render();return;
  case "plus":case "minus":
   var r1=cur();if(!r1||r1.done||phase(r1)==="sel"||typeof ME!=="number")return;var key=r1.id+"_"+ME;
@@ -637,13 +660,16 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "w1":commit(function(o){var r=curOf(o);if(!r||phaseOf(o,r)!=="race")return false;r.w1=I;r.g=o.gold.length?o.gold.pop():0;});return;
  case "w2":commit(function(o){var r=curOf(o);if(!r||r.w1===null||r.w2!==null||I===r.w1)return false;r.w2=I;r.s=o.silver.length?o.silver.pop():0;});return;
  case "unw":commit(function(o){var r=curOf(o);if(!r||r.w1===null||r.w2!==null)return false;if(r.g)o.gold.push(r.g);r.w1=null;r.g=0;});delete SEEN[(cur()||{}).id+"g"];return;
- case "unw2":commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;if(r.s)o.silver.push(r.s);r.w2=null;r.s=0;});delete SEEN[(cur()||{}).id+"s"];return;
+ case "unw2":commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;if(r.s)o.silver.push(r.s);r.w2=null;r.s=0;r.last=null;r.lastDraw=null;});delete SEEN[(cur()||{}).id+"s"];return;
  case "bz":
   var rb=cur();if(!rb)return;var extra=BONUS[rb.id+"_"+I]||0;
   commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.bz[I]=Math.max(-extra,(r.bz[I]||0)+D);});
   if(D>0){funny();popAt(rb.id+"_"+I);}return;
  case "close":
-  commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;r.done=true;if(o.races.length===RACES)o.stage="end";});return;
+  commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;var others=o.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});if(others.length&&(r.last===null||r.last===undefined))return false;
+   r.tchg=[];var up=r.picks[r.w1],f1=tierIn(o,up),t1=shifted(f1,1);if(t1!==f1){setTier(o,up,t1);r.tchg.push({n:up,from:f1,to:t1});}
+   if(r.last!==null&&r.last!==undefined){var dn=r.picks[r.last],f2=tierIn(o,dn),t2=shifted(f2,-1);if(t2!==f2){setTier(o,dn,t2);r.tchg.push({n:dn,from:f2,to:t2});}}
+   r.done=true;if(o.races.length===RACES)o.stage="end";});LASTSEL=[];return;
  case "abort":
   if(CONFIRM!=="abort"){askConfirm("abort");return;}CONFIRM=null;
   commit(function(o){var r=curOf(o);if(!r||r.done)return false;o.races.pop();Object.keys(r.picks).forEach(function(p){o.hands[p].push(r.picks[p]);});if(r.w1!==null&&r.g)o.gold.push(r.g);if(r.w2!==null&&r.s)o.silver.push(r.s);});return;
