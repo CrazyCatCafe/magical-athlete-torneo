@@ -1,4 +1,4 @@
-/* Torneo Magical Athlete — app (telefono giocatore + tablet banco) */
+/* Magical Outlet — app (telefono giocatore + tablet banco) */
 var S=null,GAME=null,PLAYERS={},BONUS={},BE=null,UNSUB=[],ME=null;
 var TAB="live",msg="",confirmReset=false,SYNC=false,FAV={},SEEN={},POP={},AC=null,prevTurn=null,SND="random",BUSY=false;
 var PC=["#ff7a59","#7fb2ff","#6fe0a3","#ffe14d","#ff9fd2","#c4a7ff","#ffb86b","#9ee7f0"];
@@ -34,9 +34,10 @@ function phase(r){return phaseOf(S,r);}
 function finished(){var r=cur();return S.started&&S.races.length>=N()&&r&&r.done;}
 function effBz(r,p){return Math.max(0,((r.bz&&r.bz[p])||0)+(BONUS[r.id+"_"+p]||0));}
 function raceScore(r,p){return (r.w1===p?(r.g||0):0)+(r.w2===p?(r.s||0):0)+effBz(r,p);}
+function startText(r){if(r.tie)return (r.tie.length===N()?"Tutti a "+r.minPts+" punti":"Pareggio a "+r.minPts+" punti tra "+r.tie.map(function(i){return S.names[i];}).join(", "))+": tirate un dado, chi fa di più parte per primo, poi in senso orario.";return "Parte "+S.names[r.first]+" (ha meno punti), poi in senso orario.";}
 function mega(i){return 'Megaround '+(Math.floor(i/3)+1)+' · gara '+(i%3+1)+'/3';}
 function takenMap(r){var m={};Object.keys(r.picks).forEach(function(k){m[r.picks[k]]=+k;});return m;}
-function startPick(o,r){var P=Core.points(o).p;var k=o.names.map(function(_,i){return {i:i,p:P[i],x:Math.random()};});k.sort(function(a,b){return a.p-b.p||a.x-b.x;});r.order=k.map(function(z){return z.i;});var pv=null;o.races.forEach(function(R){if(R.done&&R!==r&&R.last!==null&&R.last!==undefined)pv=R.last;});r.first=pv!==null?pv:Math.floor(Math.random()*o.names.length);}
+function startPick(o,r){var P=Core.points(o).p;var k=o.names.map(function(_,i){return {i:i,p:P[i],x:Math.random()};});k.sort(function(a,b){return a.p-b.p||a.x-b.x;});r.order=k.map(function(z){return z.i;});var min=Math.min.apply(null,P);var low=o.names.map(function(_,i){return i;}).filter(function(i){return P[i]===min;});r.tie=low.length>1?low:null;r.first=low[0];r.minPts=min;}
 function me(){if(!GAME)return null;if(GAME.role==="banco")return "banco";if(!S||!S.started)return "lobby";var nm=GAME.name.toLowerCase();for(var i=0;i<S.names.length;i++)if(S.names[i].toLowerCase()===nm)return i;return "out";}
 function lobbyNames(){
  var list=Object.keys(PLAYERS).map(function(k){return PLAYERS[k];}).filter(Boolean).sort(function(a,b){return (a.t||0)-(b.t||0);}).map(function(p){return p.name;});
@@ -91,34 +92,20 @@ function makeFirebaseBackend(cfg){
 }
 
 /* ---------------- sound ---------------- */
-function unlockAudio(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();}catch(e){}}
+function unlockAudio(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();preloadClips();}catch(e){}}
 document.addEventListener("pointerdown",unlockAudio,{passive:true});
 function ding(){try{unlockAudio();var c=AC;if(!c)return;var t=c.currentTime,g=c.createGain(),o=c.createOscillator();g.connect(c.destination);o.type="sine";o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1320,t+.12);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.35,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+.5);o.connect(g);o.start(t);o.stop(t+.55);}catch(e){}}
-var FARTS=[
- ["Classica",{f0:95,f1:55,d:.7,j:.12,c:380,n:.2}],
- ["Squittio",{f0:420,f1:520,d:.35,j:.06,c:2200,w:"square",v:.3,a:45}],
- ["Tuba",{f0:70,f1:58,d:1.1,j:.05,c:300,a:18,ad:.3,v:.8}],
- ["Trombetta",{f0:180,f1:240,d:.5,j:.1,c:900,w:"square",v:.35,a:35}],
- ["Lunga sgonfiata",{f0:160,f1:40,d:2.2,j:.15,c:600,a:24,n:.1}],
- ["Tripletta",{f0:110,f1:90,b:[[0,.18],[.26,.18],[.52,.38]],j:.1,c:450}],
- ["Bagnata",{f0:85,f1:60,d:.8,j:.25,c:500,n:.6,nc:1400,a:40,ad:.8}],
- ["Timida",{f0:140,f1:120,d:.22,j:.08,c:500,v:.3}],
- ["Motorino",{f0:60,f1:66,d:1.4,j:.03,c:350,a:12,ad:.95,w:"square",v:.45}],
- ["Tromba d'aria",{f0:50,f1:125,d:1,j:.18,c:700,n:.3,v:.75}]
-];
-function fart(p){
- try{unlockAudio();var c=AC;if(!c)return;var t0=c.currentTime+.02;
- (p.b||[[0,p.d]]).forEach(function(bs){var t=t0+bs[0],d=bs[1],v=p.v||.6;
-  var o=c.createOscillator();o.type=p.w||"sawtooth";o.frequency.setValueAtTime(p.f0,t);var steps=Math.max(4,Math.floor(d/.025));
-  for(var k=1;k<=steps;k++){var tg=p.f0+(p.f1-p.f0)*k/steps;o.frequency.linearRampToValueAtTime(Math.max(25,tg*(1+(Math.random()*2-1)*(p.j||.1))),t+d*k/steps);}
-  var lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=p.c||400;lp.Q.value=p.q||4;
-  var g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.02);g.gain.setValueAtTime(v,t+d*.7);g.gain.linearRampToValueAtTime(0,t+d);
-  var am=c.createGain();am.gain.value=1;var lfo=c.createOscillator();lfo.frequency.value=p.a||28;var lg=c.createGain();lg.gain.value=p.ad||.5;lfo.connect(lg);lg.connect(am.gain);
-  o.connect(lp);lp.connect(am);am.connect(g);g.connect(c.destination);o.start(t);o.stop(t+d+.05);lfo.start(t);lfo.stop(t+d+.05);
-  if(p.n){var len=Math.floor(c.sampleRate*d),buf=c.createBuffer(1,len,c.sampleRate),dd=buf.getChannelData(0);for(var i=0;i<len;i++)dd[i]=Math.random()*2-1;var ns=c.createBufferSource();ns.buffer=buf;var nf=c.createBiquadFilter();nf.type="lowpass";nf.frequency.value=p.nc||900;var ng=c.createGain();ng.gain.setValueAtTime(0,t);ng.gain.linearRampToValueAtTime(p.n,t+.02);ng.gain.linearRampToValueAtTime(0,t+d);ns.connect(nf);nf.connect(ng);ng.connect(c.destination);ns.start(t);ns.stop(t+d+.05);}
- });}catch(e){}
+var FARTS=[["Toot","f01"],["Bagnata","f02"],["Secca","f03"],["Con sorpresa","f04"],["Infernale","f05"],["Maratona","f06"],["Lamento","f07"],["Fanfara","f08"],["Tirami il dito","f09"],["Elefantiaca","f10"]];
+var BUF={},PRELOADED=false;
+function loadClip(id){if(!BUF[id]){BUF[id]=fetch("sounds/"+id+".mp3").then(function(r){if(!r.ok)throw new Error(r.status);return r.arrayBuffer();}).then(function(ab){return new Promise(function(res,rej){AC.decodeAudioData(ab,res,rej);});});BUF[id].catch(function(){delete BUF[id];});}return BUF[id];}
+function preloadClips(){if(PRELOADED||!AC)return;PRELOADED=true;FARTS.forEach(function(f){loadClip(f[1]).catch(function(){});});}
+function playClip(id){
+ unlockAudio();
+ function fallback(){try{var el=new Audio("sounds/"+id+".mp3");el.play().catch(function(){});}catch(e){}}
+ if(!AC){fallback();return;}
+ loadClip(id).then(function(b){var src=AC.createBufferSource();src.buffer=b;var g=AC.createGain();g.gain.value=1;src.connect(g);g.connect(AC.destination);src.start();}).catch(fallback);
 }
-function funny(){var k=parseInt(SND,10);if(isNaN(k)||!FARTS[k])k=Math.floor(Math.random()*FARTS.length);fart(FARTS[k][1]);}
+function funny(){var k=parseInt(SND,10);if(isNaN(k)||!FARTS[k])k=Math.floor(Math.random()*FARTS.length);playClip(FARTS[k][1]);}
 
 /* ---------------- pieces ---------------- */
 var pendingSeen=[];
@@ -177,7 +164,7 @@ function modeBanner(){return BE&&BE.local?'<div class="banner">Modalità prova: 
 /* ---------------- home + lobby ---------------- */
 function vHome(){
  var pre=(location.hash||"").replace("#","").toUpperCase().slice(0,4),last=idGet("ma_name","");
- var h='<div class="home stack">'+modeBanner()+'<span class="logo t" style="align-self:flex-start">Torneo Magical Athlete</span>';
+ var h='<div class="home stack">'+modeBanner()+'<span class="logo t" style="align-self:flex-start">Magical Outlet</span>';
  if(msg)h+='<div class="st msg" role="status" style="font-weight:800">'+esc(msg)+'</div>';
  h+='<form class="st stack" id="joinf" autocomplete="off"><h2 class="t" style="font-size:30px">Entra in una partita</h2>'+
   '<div><label for="f_code">Codice partita</label><input id="f_code" class="codein" maxlength="4" inputmode="text" autocapitalize="characters" value="'+esc(pre)+'" placeholder="ABCD" required></div>'+
@@ -188,7 +175,7 @@ function vHome(){
 }
 function vLobbyHost(){
  var names=lobbyNames(),h='<div class="stack">'+modeBanner();
- h+='<div class="top" style="margin:0"><span class="logo t">Torneo Magical Athlete</span><div class="grow"></div><button type="button" class="btn sm alt" data-act="tab" data-v="'+(TAB==="set"?"live":"set")+'">'+(TAB==="set"?'Torna alla sala d\'attesa':'Impostazioni')+'</button></div>';
+ h+='<div class="top" style="margin:0"><span class="logo t">Magical Outlet</span><div class="grow"></div><button type="button" class="btn sm alt" data-act="tab" data-v="'+(TAB==="set"?"live":"set")+'">'+(TAB==="set"?'Torna alla sala d\'attesa':'Impostazioni')+'</button></div>';
  if(msg)h+='<div class="st msg" role="status" style="font-weight:800">'+esc(msg)+'</div>';
  if(TAB==="set")return h+vSet()+'</div>';
  h+='<div class="st row" style="gap:28px;padding:22px"><div class="stack" style="gap:10px"><span class="lbl">Codice partita</span><span class="code">'+esc(GAME.code)+'</span><span class="mut">Aprite questo sito sul telefono e inserite il codice,<br>oppure inquadrate il QR.</span><span class="mut" style="word-break:break-all">'+esc(joinUrl())+'</span></div>'+(window.QRCode?'<div class="qr" id="qr" role="img" aria-label="QR code per entrare nella partita"></div>':'')+'</div>';
@@ -213,7 +200,7 @@ function vOut(){
 
 /* ---------------- banco ---------------- */
 function vBanco(){
- var h=modeBanner()+'<div class="top"><span class="logo t">Torneo Magical Athlete</span><span class="pill">Codice '+esc(GAME.code)+'</span><div class="grow"></div><nav class="tabs" aria-label="Sezioni">'+[["live","Diretta"],["board","Tabellone"],["cards","Carte"],["set","Impostazioni"]].map(function(t){return '<button type="button" class="btn sm" data-act="tab" data-v="'+t[0]+'"'+(TAB===t[0]?' aria-current="page"':'')+'>'+t[1]+'</button>';}).join("")+'</nav></div>';
+ var h=modeBanner()+'<div class="top"><span class="logo t">Magical Outlet</span><span class="pill">Codice '+esc(GAME.code)+'</span><div class="grow"></div><nav class="tabs" aria-label="Sezioni">'+[["live","Diretta"],["board","Tabellone"],["cards","Carte"],["set","Impostazioni"]].map(function(t){return '<button type="button" class="btn sm" data-act="tab" data-v="'+t[0]+'"'+(TAB===t[0]?' aria-current="page"':'')+'>'+t[1]+'</button>';}).join("")+'</nav></div>';
  if(msg)h+='<div class="st msg" role="status" style="margin-bottom:14px;font-weight:800">'+esc(msg)+'</div>';
  if(TAB==="board")h+='<div class="st"><h2 class="t" style="font-size:28px;margin-bottom:12px">Tabellone</h2>'+board()+'</div>';
  else if(TAB==="cards")h+=vCards();
@@ -246,11 +233,11 @@ function vLive(){
   return h;
  }
  var fo=[];for(var q=0;q<n;q++)fo.push((r.first+q)%n);
- if(ph==="race")h+='<div class="row" style="margin-bottom:14px"><h2 class="t" style="font-size:40px">In gara!</h2><span class="pill">Primo a tirare: '+esc(S.names[r.first])+', poi in senso orario</span></div>';
+ if(ph==="race")h+='<div class="row" style="margin-bottom:14px"><h2 class="t" style="font-size:40px">In gara!</h2></div><div class="st'+(r.tie?' msg':'')+'" style="margin-bottom:14px;font-weight:800;font-size:18px">'+(r.tie?'🎲 ':'')+esc(startText(r))+'</div>';
  else h+=resultHead(r);
  h+='<div class="stack" style="gap:10px">'+fo.map(function(p){
   var nm=r.picks[p],a=abOf(nm),t=tierOf(nm),popped=POP[r.id+"_"+p]&&POP[r.id+"_"+p]>Date.now();
-  return '<div class="rem" style="background:'+(TC[t]||'#e9e9f2')+'"><div class="who">'+dot(p)+'<span>'+esc(S.names[p])+'</span>'+(p===r.first?'<span class="first-badge">Parte</span>':'')+'</div>'+
+  return '<div class="rem" style="background:'+(TC[t]||'#e9e9f2')+'"><div class="who">'+dot(p)+'<span>'+esc(S.names[p])+'</span>'+(r.tie?(r.tie.indexOf(p)>=0?'<span class="first-badge">Dado</span>':''):(p===r.first?'<span class="first-badge">Parte</span>':''))+'</div>'+
    '<div class="ath"><b>'+esc(nm)+'</b> <span class="mut">· '+(t||'?')+'</span><div>'+esc(a[1]||'')+'</div></div>'+
    '<div class="bz"><button type="button" class="btn sm alt" data-act="bz" data-i="'+p+'" data-d="-1" aria-label="Togli un bronzo a '+esc(S.names[p])+'">−</button><span class="n" aria-label="Bronzo">'+effBz(r,p)+'</span><button type="button" class="btn sm alt" data-act="bz" data-i="'+p+'" data-d="1" aria-label="Aggiungi un bronzo a '+esc(S.names[p])+'">+</button></div>'+
    (popped?'<span class="plus1">+1</span>':'')+'</div>';}).join("")+'</div>';
@@ -270,7 +257,7 @@ function resultControls(r){
  }else if(r.w2===null){
   h+='<h3 class="t" style="font-size:26px;margin-bottom:10px">Chi è arrivato 2°?</h3><p class="mut" style="margin:0 0 10px">Si gira una fiche argento coperta e la gara finisce.</p><div class="row">'+r.order.filter(function(p){return p!==r.w1;}).map(function(p){return '<button type="button" class="btn alt" data-act="w2" data-i="'+p+'">'+dot(p)+esc(S.names[p])+'</button>';}).join("")+'</div><p style="margin:12px 0 0"><button type="button" class="btn sm alt" data-act="unw">Annulla il 1°</button></p>';
  }else{
-  h+='<h3 class="t" style="font-size:24px;margin-bottom:6px">Chi era più indietro a fine gara?</h3><p class="mut" style="margin:0 0 10px">Parte per primo nella prossima gara. Controllate anche i bronzi qui sopra.</p><div class="row">'+S.names.map(function(nm,i){return '<button type="button" class="btn sm '+(r.last===i?'acc':'alt')+'" data-act="lastp" data-i="'+i+'" aria-pressed="'+(r.last===i)+'">'+esc(nm)+'</button>';}).join("")+'</div>';
+  h+='<h3 class="t" style="font-size:24px;margin-bottom:6px">Gara finita!</h3><p class="mut" style="margin:0">Controllate i bronzi qui sopra, poi chiudete la gara.</p>';
   h+='<div class="row" style="margin-top:16px"><button type="button" class="btn alt" data-act="unw2">Annulla il 2°</button><span class="grow"></span><button type="button" class="btn big acc" data-act="close">Chiudi la gara</button></div>';
  }
  return h+'</div>';
@@ -343,7 +330,7 @@ function vPlayer(){
   h+='<div class="st"><div class="row"><span class="disc g mini">'+r.g+'</span><b>1° '+esc(S.names[r.w1])+'</b></div>';
   if(r.w2!==null)h+='<div class="row" style="margin-top:6px"><span class="disc s mini">'+r.s+'</span><b>2° '+esc(S.names[r.w2])+'</b></div>';
   h+='</div>';
- }else h+='<p class="mut" style="margin:0">Parte '+esc(S.names[r.first])+', poi in senso orario.</p>';
+ }else h+=(r.tie&&r.tie.indexOf(i)>=0?'<div class="st msg" style="font-weight:800">🎲 Tocca anche a te tirare il dado: chi fa di più parte per primo.</div>':'')+'<p class="mut" style="margin:0">'+esc(startText(r))+'</p>';
  h+=aCard(r.picks[i]);
  h+='<div style="position:relative"><button type="button" class="plusbtn" data-act="plus">+1 punto</button>'+(popped?'<span class="plus1" style="right:20px">+1</span>':'')+'</div>';
  h+='<div class="st row" style="justify-content:space-between"><div><div class="lbl">Bronzo in questa gara</div><div class="t" style="font-size:34px">'+b+'</div></div><button type="button" class="btn sm alt" data-act="minus"'+(myB?'':' disabled')+'>−1 (errore)</button></div>';
@@ -362,7 +349,7 @@ function render(){
  document.querySelectorAll("#app input,#app textarea").forEach(function(e){if(e.id)vals[e.id]=e.value;});
  var m=flipCapture();pendingSeen=[];var html;
  if(!GAME)html=vHome();
- else if(!S)html='<div class="home stack"><span class="logo t">Torneo Magical Athlete</span><div class="st">Collegamento alla partita '+esc(GAME.code)+'…</div><button type="button" class="btn alt" data-act="leave">Annulla</button></div>';
+ else if(!S)html='<div class="home stack"><span class="logo t">Magical Outlet</span><div class="st">Collegamento alla partita '+esc(GAME.code)+'…</div><button type="button" class="btn alt" data-act="leave">Annulla</button></div>';
  else if(!S.started)html=GAME.role==="banco"?vLobbyHost():vLobbyPlayer();
  else if(ME==="banco")html=vBanco();
  else if(ME==="out")html=vOut();
@@ -478,7 +465,6 @@ document.getElementById("app").addEventListener("click",function(ev){
   var rb=cur();if(!rb)return;var extra=BONUS[rb.id+"_"+I]||0;
   commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.bz[I]=Math.max(-extra,(r.bz[I]||0)+D);});
   if(D>0){funny();popAt(rb.id+"_"+I);}return;
- case "lastp":commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.last=r.last===I?null:I;});return;
  case "close":commit(function(o){var r=curOf(o);if(!r||r.w2===null)return false;r.done=true;});return;
  case "abort":commit(function(o){var r=curOf(o);if(!r||r.done)return false;o.races.pop();if(r.w1!==null&&r.g)o.gold.push(r.g);if(r.w2!==null&&r.s)o.silver.push(r.s);o.pool=r.drawn.concat(o.pool||[]);});return;
  case "save":
