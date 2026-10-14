@@ -395,7 +395,7 @@ function vPlayer(){
 }
 var SHOWHAND=null,FARTSEEN=null,FARTTOAST=null;
 function fartKey(){return (GAME&&GAME.name?GAME.name:"x").toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,24)||"x";}
-function fartBtn(){return '<button type="button" class="fartbtn" data-act="fart" aria-label="Fai una scoreggia (la sentono tutti)">💨</button>';}
+function fartBtn(){return '<div class="fartdock"><button type="button" class="fartbtn" data-act="fart" aria-label="Fai una scoreggia: la sentono tutti, anche sul tablet"><svg viewBox="0 0 52 34" width="44" height="29" fill="none" stroke="#14121f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h9M1.5 17h7M3 23h9"/><path d="M19 27a6 6 0 0 1 .5-12 9 9 0 0 1 16.5-3 7.5 7.5 0 0 1 7 11.5A5.5 5.5 0 0 1 38 30H22.5A5 5 0 0 1 19 27z" fill="#ffffff"/><circle cx="29" cy="20" r="1.6" fill="#14121f" stroke="none"/><circle cx="35" cy="20" r="1.6" fill="#14121f" stroke="none"/></svg><span>Scoreggia!</span></button></div>';}
 function freeFart(){var k=parseInt(SND,10);if(isNaN(k)||!FARTS[k])k=Math.floor(Math.random()*FARTS.length);playClip(FARTS[k][1]);if(GAME&&BE)BE.sendFart(GAME.code,fartKey(),{clip:FARTS[k][1],name:GAME.name,n:Math.random()}).catch(function(){});}
 function fartToast(){return FARTTOAST&&FARTTOAST.until>Date.now()?'<div class="farttoast" role="status">💨 '+esc(FARTTOAST.name)+'</div>':'';}
 function checkTurn(){
