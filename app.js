@@ -35,6 +35,7 @@ function defState(){return {v:2,started:false,stage:"lobby",names:[],seat:[],ros
 function migrate(o){
  if(!o.settings||!o.settings.gold){o.settings={gold:[3,4,4,5,5,6],silver:[1,1,2,2,2,3]};}
  if(!o.gold)o.gold=[];if(!o.silver)o.silver=[];if(!o.races)o.races=[];if(!o.names)o.names=[];if(!o.seat)o.seat=[];
+ o.roster.forEach(function(x){if((x.n==="Centaur"||x.n==="Third Wheel")&&!x.t)x.t="D";});
  if(!o.hands)o.hands=[];o.names.forEach(function(_,i){if(!o.hands[i])o.hands[i]=[];});
  if(o.d1===undefined)o.d1=null;if(o.d2===undefined)o.d2=null;
  if(o.started===undefined)o.started=o.names.length>0;
@@ -61,21 +62,26 @@ function totals(o){
  for(var j=0;j<n;j++)p[j]+=fb[j];
  return {p:p,w:w,b:b,fb:fb};
 }
-function standings(o){o=o||S;var T=totals(o);var rows=o.names.map(function(n,i){return {i:i,n:n,p:T.p[i],w:T.w[i],b:T.b[i],fb:T.fb[i]};});rows.sort(function(a,b){return b.p-a.p||b.w-a.w||b.b-a.b||a.i-b.i;});return rows;}
-function startInfo(o,r){var P=totals(o).p;var min=Math.min.apply(null,P);var low=o.names.map(function(_,i){return i;}).filter(function(i){return P[i]===min;});r.tie=low.length>1?low:null;r.first=low[0];r.minPts=min;}
-function startText(r){if(r.tie)return (r.tie.length===N()?"Tutti a "+r.minPts+" punti":"Pareggio a "+r.minPts+" punti tra "+r.tie.map(function(i){return S.names[i];}).join(", "))+": tirate un dado, chi fa di più parte per primo, poi in senso orario.";return "Parte "+S.names[r.first]+" (ha meno punti), poi in senso orario.";}
+var FARTMAP={};
+function nameKey(n){return String(n||"x").toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,24)||"x";}
+function fartsOf(o,i){var v=FARTMAP[nameKey(o.names[i])];return (v&&v.c)||0;}
+function standings(o){o=o||S;var T=totals(o);var rows=o.names.map(function(n,i){return {i:i,n:n,p:T.p[i],w:T.w[i],b:T.b[i],fb:T.fb[i],f:fartsOf(o,i)};});rows.sort(function(a,b){return b.p-a.p||a.f-b.f||b.w-a.w||b.b-a.b||a.i-b.i;});return rows;}
+function startInfo(o,r){var P=totals(o).p;var min=Math.min.apply(null,P);var low=o.names.map(function(_,i){return i;}).filter(function(i){return P[i]===min;});r.minPts=min;r.byFarts=false;
+ if(low.length>1){var fm=Math.min.apply(null,low.map(function(i){return fartsOf(o,i);}));var low2=low.filter(function(i){return fartsOf(o,i)===fm;});if(low2.length<low.length)r.byFarts=true;low=low2;}
+ r.tie=low.length>1?low:null;r.first=low[0];}
+function startText(r){if(r.tie)return (r.tie.length===N()?"Tutti a "+r.minPts+" punti e stessi rutti e scoregge":"Pareggio (punti e rutti/scoregge) tra "+r.tie.map(function(i){return S.names[i];}).join(", "))+": tirate un dado, chi fa di più parte per primo, poi in senso orario.";return "Parte "+S.names[r.first]+(r.byFarts?" (meno punti; a parità, meno rutti e scoregge)":" (ha meno punti)")+", poi in senso orario.";}
 function mega(k){return 'Megaround '+(Math.floor(k/3)+1)+' · gara '+(k%3+1)+'/3';}
 function takenMap(r){var m={};Object.keys(r.picks).forEach(function(k){m[r.picks[k]]=+k;});return m;}
-/* ordine di scelta per le gare 2,3,5,6: più punti prima; pari → livello carta gara precedente (alto prima); pari → caso */
+/* ordine di scelta per le gare 2-6: più punti prima; pari → meno rutti/scoregge; pari → livello carta gara precedente (alto prima); pari → caso */
 function chooseOrder(o){
  var P=totals(o).p,prev=curOf(o);var rk={};for(var i=0;i<o.names.length;i++){var c=prev&&prev.picks?prev.picks[i]:null;var t="";if(c)for(var k=0;k<o.roster.length;k++)if(o.roster[k].n===c)t=o.roster[k].t;rk[i]=TRANK[t]||0;}
- var arr=o.names.map(function(_,i){return {i:i,p:P[i],t:rk[i],x:Math.random()};});
- arr.sort(function(a,b){return b.p-a.p||b.t-a.t||a.x-b.x;});
- var why=[];for(var j=1;j<arr.length;j++){var a=arr[j-1],b=arr[j];if(a.p===b.p)why.push(a.t!==b.t?(o.names[a.i]+" prima di "+o.names[b.i]+": stessi punti, carta di livello più alto nella gara prima"):(o.names[a.i]+" prima di "+o.names[b.i]+": parità totale, estratto a caso"));}
+ var arr=o.names.map(function(_,i){return {i:i,p:P[i],f:fartsOf(o,i),t:rk[i],x:Math.random()};});
+ arr.sort(function(a,b){return b.p-a.p||a.f-b.f||b.t-a.t||a.x-b.x;});
+ var why=[];for(var j=1;j<arr.length;j++){var a=arr[j-1],b=arr[j];if(a.p===b.p)why.push(a.f!==b.f?(o.names[a.i]+" prima di "+o.names[b.i]+": stessi punti, meno rutti e scoregge ("+a.f+" contro "+b.f+")"):a.t!==b.t?(o.names[a.i]+" prima di "+o.names[b.i]+": stessi punti, carta di livello più alto nella gara prima"):(o.names[a.i]+" prima di "+o.names[b.i]+": parità totale, estratto a caso"));}
  return {order:arr.map(function(z){return z.i;}),why:why};
 }
 /* ordine draft megaround 2: meno punti prima, pari a caso */
-function d2Order(o){var P=totals(o).p;var arr=o.names.map(function(_,i){return {i:i,p:P[i],x:Math.random()};});arr.sort(function(a,b){return a.p-b.p||a.x-b.x;});return arr.map(function(z){return z.i;});}
+function d2Order(o){var P=totals(o).p;var arr=o.names.map(function(_,i){return {i:i,p:P[i],f:fartsOf(o,i),x:Math.random()};});arr.sort(function(a,b){return a.p-b.p||a.f-b.f||a.x-b.x;});return arr.map(function(z){return z.i;});}
 function allNames(o){return o.roster.map(function(x){return x.n;});}
 function dealD1(o){
  var n=o.names.length,deck=Core.shuffle(allNames(o),Math.random),packs=[];
@@ -125,7 +131,8 @@ function makeLocalBackend(){
   watchBonus:function(c,cb){return watch("games/"+c+"/bonus",function(v){cb(v||{});});},
   incBonus:function(c,idx,rid,d){var m=get("games/"+c+"/bonus")||{};m[idx]=m[idx]||{};m[idx][rid]=Math.max(0,(m[idx][rid]||0)+d);put("games/"+c+"/bonus",m);return Promise.resolve();},
   watchFarts:function(c,cb){return watch("games/"+c+"/farts",function(v){cb(v||{});});},
-  sendFart:function(c,key,data){var m=get("games/"+c+"/farts")||{};data.t=Date.now();m[key]=data;put("games/"+c+"/farts",m);return Promise.resolve();},
+  sendFart:function(c,key,data){var m=get("games/"+c+"/farts")||{};data.t=Date.now();data.c=((m[key]&&m[key].c)||0)+1;m[key]=data;put("games/"+c+"/farts",m);return Promise.resolve();},
+  resetFarts:function(c){put("games/"+c+"/farts",{});return Promise.resolve();},
   watchConn:function(cb){cb(true);return function(){};}
  };
 }
@@ -146,7 +153,8 @@ function makeFirebaseBackend(cfg){
   watchBonus:function(c,cb){return on(r("games/"+c+"/bonus"),function(v){cb(v||{});});},
   incBonus:function(c,idx,rid,d){return r("games/"+c+"/bonus/"+idx+"/"+rid).transaction(function(v){return Math.max(0,(v||0)+d);});},
   watchFarts:function(c,cb){return on(r("games/"+c+"/farts"),function(v){cb(v||{});});},
-  sendFart:function(c,key,data){data.t=firebase.database.ServerValue.TIMESTAMP;return r("games/"+c+"/farts/"+key).set(data);},
+  sendFart:function(c,key,data){data.t=Date.now();return r("games/"+c+"/farts/"+key).transaction(function(v){data.c=((v&&v.c)||0)+1;return data;});},
+  resetFarts:function(c){return r("games/"+c+"/farts").remove();},
   watchConn:function(cb){var ref=db.ref(".info/connected");var h=ref.on("value",function(s){cb(!!s.val());});return function(){ref.off("value",h);};}
  };
 }
@@ -155,7 +163,7 @@ function makeFirebaseBackend(cfg){
 function unlockAudio(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();preloadClips();}catch(e){}}
 document.addEventListener("pointerdown",unlockAudio,{passive:true});
 function ding(){try{unlockAudio();var c=AC;if(!c)return;var t=c.currentTime,g=c.createGain(),o=c.createOscillator();g.connect(c.destination);o.type="sine";o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1320,t+.12);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.35,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+.5);o.connect(g);o.start(t);o.stop(t+.55);}catch(e){}}
-var FARTS=[["Toot","f01"],["Bagnata","f02"],["Secca","f03"],["Con sorpresa","f04"],["Infernale","f05"],["Maratona","f06"],["Lamento","f07"],["Fanfara","f08"],["Tirami il dito","f09"],["Elefantiaca","f10"]];
+var FARTS=[["Scoreggia · Toot","f01"],["Rutto · Classico","r01"],["Scoreggia · Bagnata","f02"],["Rutto · Profondo","r02"],["Scoreggia · Secca","f03"],["Rutto · Cavernoso","r03"],["Scoreggia · Con sorpresa","f04"],["Rutto · Acuto","r04"],["Scoreggia · Infernale","f05"],["Rutto · Doppio","r05"],["Scoreggia · Maratona","f06"],["Rutto · Triplo","r06"],["Scoreggia · Lamento","f07"],["Rutto · In cattedrale","r07"],["Scoreggia · Fanfara","f08"],["Rutto · Tremolante","r08"],["Scoreggia · Tirami il dito","f09"],["Rutto · Al rallentatore","r09"],["Scoreggia · Elefantiaca","f10"],["Rutto · Del gigante","r10"]];
 var BUF={},PRELOADED=false;
 function loadClip(id){if(!BUF[id]){BUF[id]=fetch("sounds/"+id+".mp3").then(function(r){if(!r.ok)throw new Error(r.status);return r.arrayBuffer();}).then(function(ab){return new Promise(function(res,rej){AC.decodeAudioData(ab,res,rej);});});BUF[id].catch(function(){delete BUF[id];});}return BUF[id];}
 function preloadClips(){if(PRELOADED||!AC)return;PRELOADED=true;FARTS.forEach(function(f){loadClip(f[1]).catch(function(){});});}
@@ -189,7 +197,7 @@ function board(){
  if(end)h+='<span>Carta<br><small>bonus</small></span>';
  h+='<span><span class="flag"></span> Tot</span></div>';
  rows.forEach(function(x,pos){
-  h+='<div class="lane" data-flip="p'+x.i+'"><span class="pos">'+(pos+1)+'</span><span class="pn">'+dot(x.i)+'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.n)+'</span></span>';
+  h+='<div class="lane" data-flip="p'+x.i+'"><span class="pos">'+(pos+1)+'</span><span class="pn">'+dot(x.i)+'<span style="display:flex;flex-direction:column;min-width:0;line-height:1.05"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.n)+'</span><small class="fc" title="Rutti e scoregge">💨 '+x.f+'</small></span></span>';
   for(var k=0;k<RACES;k++){
    var R=S.races[k],c='';
    if(R){
@@ -224,14 +232,14 @@ function awards(){
 function stageInfo(){
  var n=N(),r=cur(),ph=phase(r),k=S.races.length;
  if(S.stage==="draft1"){var d=S.d1,left=S.names.filter(function(_,i){return !d.picked[i];});return {t:"Draft · Megaround 1 · giro "+(d.round+1)+" di 3",x:"Ognuno sceglie 1 carta dal suo mazzetto; le altre passano al giocatore successivo. Alla fine avrete 4 carte a testa."+(left.length?" Mancano: "+left.join(", ")+".":"")};}
- if(S.stage==="draft2"){var d2=S.d2,np=Object.keys(d2.picks).length;return {t:"Draft · Megaround 2 · giro "+(d2.round+1)+" di 3",x:"Si rivelano "+n+" carte e si sceglie una a testa, da chi ha meno punti. Ora sceglie "+S.names[d2.order[np]]+". Alla fine avrete 4 carte: 3 nuove più quella tenuta dal megaround 1."};}
+ if(S.stage==="draft2"){var d2=S.d2,np=Object.keys(d2.picks).length;return {t:"Draft · Megaround 2 · giro "+(d2.round+1)+" di 3",x:"Si rivelano "+n+" carte e si sceglie una a testa, da chi ha meno punti (pari: meno rutti e scoregge). Ora sceglie "+S.names[d2.order[np]]+". Alla fine avrete 4 carte: 3 nuove più quella tenuta dal megaround 1."};}
  if(S.stage==="end")return {t:"Torneo finito",x:"La carta rimasta in mano dà punti bonus: S o A +2, B o C +1, D 0."};
  if(ph==="sel"){var who=r.order[nPicks(r)];return {t:"Gara "+k+" · scelta della carta",x:"Ognuno sceglie una carta dalla sua mano, da chi ha più punti. Ora sceglie "+S.names[who]+"."};}
  if(ph==="race")return {t:"Gara "+k+" in corso",x:startText(r)+" Premete +1 sul telefono per stelle e poteri."};
  if(ph==="result")return {t:"Gara "+k+" · arrivo",x:"Il banco registra 1° e 2° e gira le fiche."};
  if(k===0)return {t:"Gara 1",x:"Il banco assegna a ognuno una carta a caso dalla sua mano."};
  if(k===3&&!S.d2done)return {t:"Fine del Megaround 1",x:"Ognuno tiene la carta rimasta. Il banco avvia il draft del Megaround 2."};
- return {t:"Prossima: gara "+(k+1),x:"Si sceglie la carta dalla propria mano, da chi ha più punti (pari: livello della carta usata nella gara prima)."};
+ return {t:"Prossima: gara "+(k+1),x:"Si sceglie la carta dalla propria mano, da chi ha più punti (pari: meno rutti e scoregge, poi livello della carta usata nella gara prima)."};
 }
 function infoBox(big){var si=stageInfo();return '<div class="st msg" role="status"><div class="lbl">Cosa succede ora</div><div class="t" style="font-size:'+(big?28:22)+'px;margin:2px 0 4px">'+esc(si.t)+'</div><div style="font-weight:700">'+esc(si.x)+'</div></div>';}
 function handRow(i,label){var h=S.hands[i]||[];return '<div class="st"><div class="lbl">'+(label||'Le tue carte')+' ('+h.length+')</div><div class="row" style="margin-top:8px">'+(h.length?h.map(function(c){return '<span class="pill" style="background:'+(TC[tierOf(c)]||'#e9e9f2')+'">'+esc(c)+' · '+(tierOf(c)||'?')+'</span>';}).join(""):'<span class="mut">nessuna</span>')+'</div></div>';}
@@ -339,7 +347,7 @@ function vEnd(){
 /* ---------------- player ---------------- */
 function vPlayer(){
  var i=ME,n=N(),r=cur(),ph=phase(r),rows=standings(),pos=0,pts=0,k=S.races.length;rows.forEach(function(x,q){if(x.i===i){pos=q+1;pts=x.p;}});
- var h='<div class="ph stack">'+modeBanner()+'<div class="me">'+dot(i)+'<div class="grow"><div class="t" style="font-size:26px;line-height:1">'+esc(S.names[i])+'</div><div class="mut">'+pts+' punti · '+pos+'° in classifica · '+esc(GAME.code)+'</div></div><button type="button" class="btn sm alt" data-act="leave">Esci</button></div>';
+ var h='<div class="ph stack">'+modeBanner()+'<div class="me">'+dot(i)+'<div class="grow"><div class="t" style="font-size:26px;line-height:1">'+esc(S.names[i])+'</div><div class="mut">'+pts+' punti · '+pos+'° · 💨 '+fartsOf(S,i)+' · '+esc(GAME.code)+'</div></div><button type="button" class="btn sm alt" data-act="leave">Esci</button></div>';
  if(msg)h+='<div class="st msg" role="status" style="font-weight:800">'+esc(msg)+'</div>';
  if(!SYNC&&!BE.local)h+='<div class="banner">Connessione persa: riprovo…</div>';
  if(finished()){var w=rows[0],c=(S.hands[i]||[])[0];return h+'<div class="st turn"><h2 class="t" style="font-size:32px">Torneo finito!</h2><p style="margin:4px 0 0;font-weight:800">Vince '+esc(w.n)+' con '+w.p+' punti. Tu sei '+pos+'°.</p></div>'+(c?'<div class="lbl">La tua carta bonus: +'+tierBonus(c)+'</div>'+aCard(c):'')+'<p class="mut">Guarda il podio sul tablet.</p></div>';}
@@ -389,13 +397,13 @@ function vPlayer(){
  h+=aCard(r.picks[i]);
  h+='<div style="position:relative"><button type="button" class="plusbtn" data-act="plus">+1 punto</button>'+(popped?'<span class="plus1" style="right:20px">+1</span>':'')+'</div>';
  h+='<div class="st row" style="justify-content:space-between"><div><div class="lbl">Bronzo in questa gara</div><div class="t" style="font-size:34px">'+b+'</div></div><button type="button" class="btn sm alt" data-act="minus"'+(myB?'':' disabled')+'>−1 (errore)</button></div>';
- h+='<div class="row"><label for="f_snd" style="margin:0">Scoreggia del +1</label><select id="f_snd"><option value="random">A caso</option>'+FARTS.map(function(f,q){return '<option value="'+q+'">'+esc(f[0])+'</option>';}).join("")+'</select></div>';
+ h+='<div class="row"><label for="f_snd" style="margin:0">Suono</label><select id="f_snd"><option value="random">A caso</option>'+FARTS.map(function(f,q){return '<option value="'+q+'">'+esc(f[0])+'</option>';}).join("")+'</select></div>';
  h+=handRow(i,'Ti restano in mano');
  return h+'</div>';
 }
 var SHOWHAND=null,SHOWPACK=null,CONFIRM=null,FARTSEEN=null,FARTTOAST=null;
 function fartKey(){return (GAME&&GAME.name?GAME.name:"x").toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,24)||"x";}
-function fartBtn(){return '<div class="fartdock"><button type="button" class="fartbtn" data-act="fart" aria-label="Fai una scoreggia: la sentono tutti, anche sul tablet"><svg viewBox="0 0 52 34" width="44" height="29" fill="none" stroke="#14121f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h9M1.5 17h7M3 23h9"/><path d="M19 27a6 6 0 0 1 .5-12 9 9 0 0 1 16.5-3 7.5 7.5 0 0 1 7 11.5A5.5 5.5 0 0 1 38 30H22.5A5 5 0 0 1 19 27z" fill="#ffffff"/><circle cx="29" cy="20" r="1.6" fill="#14121f" stroke="none"/><circle cx="35" cy="20" r="1.6" fill="#14121f" stroke="none"/></svg><span>Scoreggia!</span></button></div>';}
+function fartBtn(){return '<div class="fartdock"><button type="button" class="fartbtn" data-act="fart" aria-label="Rutto o scoreggia: lo sentono tutti, anche sul tablet. Conta negli spareggi"><svg viewBox="0 0 52 34" width="44" height="29" fill="none" stroke="#14121f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h9M1.5 17h7M3 23h9"/><path d="M19 27a6 6 0 0 1 .5-12 9 9 0 0 1 16.5-3 7.5 7.5 0 0 1 7 11.5A5.5 5.5 0 0 1 38 30H22.5A5 5 0 0 1 19 27z" fill="#ffffff"/><circle cx="29" cy="20" r="1.6" fill="#14121f" stroke="none"/><circle cx="35" cy="20" r="1.6" fill="#14121f" stroke="none"/></svg><span>Rutti e scoregge</span></button></div>';}
 function freeFart(){var k=parseInt(SND,10);if(isNaN(k)||!FARTS[k])k=Math.floor(Math.random()*FARTS.length);playClip(FARTS[k][1]);if(GAME&&BE)BE.sendFart(GAME.code,fartKey(),{clip:FARTS[k][1],name:GAME.name,n:Math.random()}).catch(function(){});}
 function fartToast(){return FARTTOAST&&FARTTOAST.until>Date.now()?'<div class="farttoast" role="status">💨 '+esc(FARTTOAST.name)+'</div>':'';}
 function checkTurn(){
@@ -473,12 +481,12 @@ function vTut(){
  h+='<p style="font-weight:800;margin:0">Magical Outlet è un torneo di Magical Athlete: <b>6 gare</b> divise in <b>2 megaround da 3</b>. Vince chi fa più punti. Il tablet al centro fa da banco e tabellone, tu giochi dal telefono.</p>';
  h+=step(1,'Entra nella partita','<p class="tp">Il banco crea la partita sul tablet e mostra un <b>codice di 4 lettere</b>. Inseriscilo qui con il tuo nome. Se chiudi il telefono, rientri con lo stesso codice e lo stesso nome.</p>');
  h+=step(2,'Draft · Megaround 1','<p class="tp">Ricevi <b>4 carte segrete</b>. Ne tieni <b>1</b> e passi le altre al giocatore seduto dopo di te; poi ricevi il mazzetto di chi ti sta prima. Si fanno 3 giri, l\'ultima carta arriva da sola: finisci con <b>4 carte in mano</b>.</p>','#ffe9a8');
- h+=step(3,'Quale carta giochi','<p class="tp"><b>Gara 1</b>: l\'app ti assegna una carta <b>a caso</b> dalla tua mano (non c\'è ancora un punteggio).</p><p class="tp"><b>Gare 2–6</b>: scegli tu dalla tua mano, uno alla volta, a partire da <b>chi ha più punti</b>. Le carte già scelte sono visibili a tutti, quindi chi sceglie dopo può contrastare. Parità di punti: sceglie prima chi nella gara precedente ha usato la carta di <b>livello più alto</b>; se ancora pari, decide il caso.</p>','#d9e6ff');
- h+=step(4,'La gara','<p class="tp">Si gioca con le regole normali di Magical Athlete: la gara finisce quando <b>due atleti</b> tagliano il traguardo.</p><p class="tp">Parte per primo <b>chi ha meno punti</b>, poi in senso orario. Se più giocatori sono pari, <b>tirano un dado</b>: chi fa di più parte.</p>','#d2f6e3');
+ h+=step(3,'Quale carta giochi','<p class="tp"><b>Gara 1</b>: l\'app ti assegna una carta <b>a caso</b> dalla tua mano (non c\'è ancora un punteggio).</p><p class="tp"><b>Gare 2–6</b>: scegli tu dalla tua mano, uno alla volta, a partire da <b>chi ha più punti</b>. Le carte già scelte sono visibili a tutti, quindi chi sceglie dopo può contrastare. Parità di punti: sceglie prima chi ha fatto <b>meno rutti e scoregge</b>; poi chi nella gara precedente ha usato la carta di <b>livello più alto</b>; se ancora pari, decide il caso.</p>','#d9e6ff');
+ h+=step(4,'La gara','<p class="tp">Si gioca con le regole normali di Magical Athlete: la gara finisce quando <b>due atleti</b> tagliano il traguardo.</p><p class="tp">Parte per primo <b>chi ha meno punti</b>, poi in senso orario. A parità di punti parte chi ha fatto <b>meno rutti e scoregge</b>; se ancora pari, <b>tirate un dado</b>: chi fa di più parte.</p>','#d2f6e3');
  h+=step(5,'I punti','<p class="tp"><b>1° posto</b>: una fiche oro coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(gold,"g")+'</div><p class="tp"><b>2° posto</b>: una fiche argento coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(silv,"s")+'</div><p class="tp">Ogni fiche girata viene scartata: nelle 6 gare escono tutte, una volta sola.</p><p class="tp"><span class="mini-b">+1</span> <b>Bronzo</b>: ogni casella stella e ogni potere che dà punti (Hare, Lovable Loser, Sisyphus…) vale 1 punto. Lo segni tu con il tasto <b>+1 punto</b> sul telefono.</p>','#ffe1d8');
- h+=step(6,'Draft · Megaround 2','<p class="tp">Dopo la gara 3 ti resta <b>1 carta</b>: la tieni. Tutte le altre carte si rimischiano. Per 3 volte si rivelano 6 carte e ognuno ne prende una, a partire da <b>chi ha meno punti</b>. Torni ad avere 4 carte e si giocano le gare 4, 5 e 6 come prima.</p>','#ffe9a8');
- h+=step(7,'Fine e bonus','<p class="tp">Dopo la gara 6 ti resta 1 carta: vale punti in più secondo il suo livello.</p><div class="row" style="gap:8px;margin:6px 0 10px"><span class="pill" style="background:#ff7a59">S +2</span><span class="pill" style="background:#ffe14d">A +2</span><span class="pill" style="background:#7fb2ff">B +1</span><span class="pill" style="background:#6fe0a3">C +1</span><span class="pill" style="background:#ff9fd2">D 0</span></div><p class="tp">Vince chi ha più punti. Parità: più vittorie, poi più bronzi.</p>','#efe2ff');
- h+=step(8,'I tasti del telefono','<p class="tp"><b>Tocca a te</b>: il telefono suona e vibra quando devi scegliere.</p><p class="tp"><b>+1 punto</b>: per stelle e poteri, durante la gara. Sbagliato? C\'è il −1.</p><p class="tp"><b>Scoreggia!</b>: in basso, sempre disponibile. La sentono tutti, anche il tablet.</p>');
+ h+=step(6,'Draft · Megaround 2','<p class="tp">Dopo la gara 3 ti resta <b>1 carta</b>: la tieni. Tutte le altre carte si rimischiano. Per 3 volte si rivelano 6 carte e ognuno ne prende una, a partire da <b>chi ha meno punti</b> (a parità, chi ha fatto meno rutti e scoregge). Torni ad avere 4 carte e si giocano le gare 4, 5 e 6 come prima.</p>','#ffe9a8');
+ h+=step(7,'Fine e bonus','<p class="tp">Dopo la gara 6 ti resta 1 carta: vale punti in più secondo il suo livello.</p><div class="row" style="gap:8px;margin:6px 0 10px"><span class="pill" style="background:#ff7a59">S +2</span><span class="pill" style="background:#ffe14d">A +2</span><span class="pill" style="background:#7fb2ff">B +1</span><span class="pill" style="background:#6fe0a3">C +1</span><span class="pill" style="background:#ff9fd2">D 0</span></div><p class="tp">Vince chi ha più punti. Parità: <b>meno rutti e scoregge</b>, poi più vittorie, poi più bronzi.</p>','#efe2ff');
+ h+=step(8,'I tasti del telefono','<p class="tp"><b>Tocca a te</b>: il telefono suona e vibra quando devi scegliere.</p><p class="tp"><b>+1 punto</b>: per stelle e poteri, durante la gara. Sbagliato? C\'è il −1.</p><p class="tp"><b>Rutti e scoregge</b>: in basso, sempre disponibile. Lo sentono tutti, anche il tablet. Attenzione: <b>ogni pressione viene contata</b> e in tutti gli spareggi vince chi ne ha fatti di meno.</p>');
  h+='<button type="button" class="btn big acc" data-act="tutclose" style="align-self:center">Ho capito, si gioca!</button>';
  return h+'</div></div>';
 }
@@ -525,10 +533,10 @@ function connect(){
  }));
  UNSUB.push(BE.watchPlayers(GAME.code,function(m){PLAYERS=m||{};safeRender();}));
  UNSUB.push(BE.watchFarts(GAME.code,function(m){
-  var sig={};Object.keys(m||{}).forEach(function(k){var v=m[k]||{};sig[k]=String(v.t)+"|"+v.n;});
-  if(FARTSEEN===null){FARTSEEN=sig;return;}
+  FARTMAP=m||{};var sig={};Object.keys(m||{}).forEach(function(k){var v=m[k]||{};sig[k]=String(v.t)+"|"+v.n;});
+  if(FARTSEEN===null){FARTSEEN=sig;safeRender();return;}
   Object.keys(sig).forEach(function(k){if(sig[k]!==FARTSEEN[k]){var v=m[k];if(GAME.role==="banco"){playClip(v.clip||"f01");FARTTOAST={name:v.name||"?",until:Date.now()+2200};safeRender();setTimeout(safeRender,2300);}}});
-  FARTSEEN=sig;
+  FARTSEEN=sig;safeRender();
  }));
  UNSUB.push(BE.watchBonus(GAME.code,function(bm){
   var nb={};Object.keys(bm||{}).forEach(function(idx){var rm=bm[idx]||{};Object.keys(rm).forEach(function(rid){nb[rid+"_"+idx]=rm[rid];});});
@@ -605,7 +613,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "kick":
   var pid=playerIdByName(NM);if(pid)BE.removePlayer(GAME.code,pid);commit(function(o){if(o.started)return false;o.seat=(o.seat||[]).filter(function(x){return x!==NM;});});return;
  case "start":
-  var order=lobbyNames();
+  var order=lobbyNames();BE.resetFarts(GAME.code);
   commit(function(o){if(o.started||order.length<2)return false;if(o.settings.gold.length<RACES||o.settings.silver.length<RACES)return false;if(o.roster.length<order.length*4)return false;
    o.names=order;o.started=true;o.races=[];o.gold=Core.shuffle(o.settings.gold,Math.random);o.silver=Core.shuffle(o.settings.silver,Math.random);dealD1(o);});return;
  /* --- draft megaround 1 (simultaneo, a passaggio) --- */
@@ -662,7 +670,7 @@ document.getElementById("app").addEventListener("click",function(ev){
   commit(function(o){o.roster=ro;if(!(o.started&&o.races.length>0)&&gl){o.settings={gold:gl,silver:sl};if(o.started){o.gold=Core.shuffle(gl,Math.random);o.silver=Core.shuffle(sl,Math.random);}}}).then(function(ok){msg=ok?"Impostazioni salvate.":msg;render();});return;
  case "reset1":confirmReset=true;render();return;
  case "reset0":confirmReset=false;render();return;
- case "reset2":confirmReset=false;TAB="live";commit(function(o){o.races=[];o.gold=Core.shuffle(o.settings.gold,Math.random);o.silver=Core.shuffle(o.settings.silver,Math.random);dealD1(o);});return;
+ case "reset2":confirmReset=false;TAB="live";BE.resetFarts(GAME.code);commit(function(o){o.races=[];o.gold=Core.shuffle(o.settings.gold,Math.random);o.silver=Core.shuffle(o.settings.silver,Math.random);dealD1(o);});return;
  }
 });
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&TUT){TUT=false;render();}});
