@@ -124,3 +124,13 @@ label{font-weight:800;display:block;margin-bottom:6px}
 .ph{padding-bottom:110px}
 .farttoast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:60;background:var(--yel);border:3px solid var(--ink);border-radius:16px;box-shadow:5px 5px 0 var(--ink);padding:8px 20px 10px;font-family:"Lilita One",sans-serif;font-size:30px;animation:toastIn 2.2s ease-out forwards}
 @keyframes toastIn{0%{opacity:0;transform:translate(-50%,-10px) scale(.6)}15%{opacity:1;transform:translate(-50%,0) scale(1.1)}80%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-20px)}}
+
+/* tutorial */
+.tut{position:fixed;inset:0;z-index:80;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(40px + env(safe-area-inset-bottom,0px))}
+.tut .ph{padding-bottom:20px}
+.tuthead{position:sticky;top:-14px;z-index:2;background:var(--bg);padding:10px 0}
+.tnum{flex:0 0 40px;width:40px;height:40px;border-radius:99px;border:3px solid var(--ink);background:var(--yel);display:inline-flex;align-items:center;justify-content:center;font-family:"Lilita One",sans-serif;font-size:22px}
+.tp{margin:0 0 8px;font-weight:700;line-height:1.45}
+.tp:last-child{margin-bottom:0}
+.tutbtn{width:100%;background:var(--paper)}
+.hostbox{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:3px dashed #9a97c4;padding-top:16px;margin-top:6px}

@@ -226,7 +226,7 @@ function stageInfo(){
  if(S.stage==="draft1"){var d=S.d1,left=S.names.filter(function(_,i){return !d.picked[i];});return {t:"Draft · Megaround 1 · giro "+(d.round+1)+" di 3",x:"Ognuno sceglie 1 carta dal suo mazzetto; le altre passano al giocatore successivo. Alla fine avrete 4 carte a testa."+(left.length?" Mancano: "+left.join(", ")+".":"")};}
  if(S.stage==="draft2"){var d2=S.d2,np=Object.keys(d2.picks).length;return {t:"Draft · Megaround 2 · giro "+(d2.round+1)+" di 3",x:"Si rivelano "+n+" carte e si sceglie una a testa, da chi ha meno punti. Ora sceglie "+S.names[d2.order[np]]+". Alla fine avrete 4 carte: 3 nuove più quella tenuta dal megaround 1."};}
  if(S.stage==="end")return {t:"Torneo finito",x:"La carta rimasta in mano dà punti bonus: S o A +2, B o C +1, D 0."};
- if(ph==="sel"){var who=r.order[nPicks(r)];return {t:"Gara "+k+" · scelta della carta",x:"Ognuno sceglie una carta dalla sua mano, da chi ha più punti. Ora sceglie "+S.names[who]+"."+(r.why&&r.why.length?" ("+r.why.join("; ")+")":"")};}
+ if(ph==="sel"){var who=r.order[nPicks(r)];return {t:"Gara "+k+" · scelta della carta",x:"Ognuno sceglie una carta dalla sua mano, da chi ha più punti. Ora sceglie "+S.names[who]+"."};}
  if(ph==="race")return {t:"Gara "+k+" in corso",x:startText(r)+" Premete +1 sul telefono per stelle e poteri."};
  if(ph==="result")return {t:"Gara "+k+" · arrivo",x:"Il banco registra 1° e 2° e gira le fiche."};
  if(k===0)return {t:"Gara 1",x:"Il banco assegna a ognuno una carta a caso dalla sua mano."};
@@ -253,7 +253,7 @@ function vLive(){
  h+='<div style="margin-bottom:16px">'+infoBox(true)+'</div>';
  if(S.stage==="draft1"){
   var d=S.d1;
-  h+='<div class="st"><div class="row" style="margin-bottom:12px"><h2 class="t grow" style="font-size:30px">Draft in corso</h2><span class="pill">Giro '+(d.round+1)+'/3</span></div><div class="grid">'+S.names.map(function(nm,i){var nx=S.names[(i+1)%n];return '<div class="pl" style="background:'+(d.picked[i]?'#d7f5e3':'#fff')+'">'+dot(i)+'<span class="nm">'+esc(nm)+'</span><span class="mut">'+(d.picked[i]?'✓ scelto':'sta scegliendo…')+'</span></div>';}).join("")+'</div><p class="mut" style="margin:12px 0 0">Le carte del draft sono segrete: si vedono solo sui telefoni. Dopo ogni giro i mazzetti passano al giocatore successivo (ordine dei posti). All\'ultimo giro l\'ultima carta viene presa in automatico.</p></div>';
+  h+='<div class="st"><div class="row" style="margin-bottom:12px"><h2 class="t grow" style="font-size:30px">Draft in corso</h2><span class="pill">Giro '+(d.round+1)+'/3</span></div><div class="grid">'+S.names.map(function(nm,i){var nx=S.names[(i+1)%n];return '<div class="pl" style="background:'+(d.picked[i]?'#d7f5e3':'#fff')+'">'+dot(i)+'<span class="nm">'+esc(nm)+'</span>'+(d.picked[i]?'<span class="mut">✓ scelto</span>':(SHOWPACK!==null?'<button type="button" class="btn sm alt" data-act="showpack" data-i="'+i+'">'+(SHOWPACK===i?'Nascondi':'Scegli per lui')+'</button>':'<span class="mut">sta scegliendo…</span>'))+'</div>';}).join("")+'</div>'+(SHOWPACK!==null&&SHOWPACK>=0&&!d.picked[SHOWPACK]?'<div class="st" style="margin-top:14px;background:#fff8d6"><div class="lbl">Mazzetto di '+esc(S.names[SHOWPACK])+' (visibile a tutti)</div><div class="row" style="margin-top:8px">'+(d.packs[SHOWPACK]||[]).map(function(c){return '<button type="button" class="btn alt" data-act="d1pick" data-n="'+esc(c)+'" data-w="'+SHOWPACK+'">'+esc(c)+' · '+(tierOf(c)||'?')+'</button>';}).join("")+'</div></div>':'')+'<p style="margin:12px 0 0"><button type="button" class="btn sm alt" data-act="showpack" data-i="-1">'+(SHOWPACK===null?'Qualcuno non ha il telefono?':'Chiudi aiuto')+'</button></p><p class="mut" style="margin:12px 0 0">Le carte del draft sono segrete: si vedono solo sui telefoni. Dopo ogni giro i mazzetti passano al giocatore successivo (ordine dei posti). All\'ultimo giro l\'ultima carta viene presa in automatico.</p></div>';
   h+='<div class="st" style="margin-top:18px"><h2 class="t" style="font-size:24px;margin-bottom:10px">Tabellone</h2>'+board()+'</div>';
   return h;
  }
@@ -269,7 +269,7 @@ function vLive(){
  if(ph==="none"||ph==="done"){
   var mr2=k===3&&!S.d2done;
   h+='<div class="st row" style="gap:24px;align-items:center;padding:20px"><div class="grow stack" style="gap:8px"><span class="pill" style="align-self:flex-start">'+(mr2?'Fine Megaround 1':mega(k))+'</span><h2 class="t" style="font-size:36px">'+(mr2?'Pronti per il Megaround 2':(k===0?'Gara 1: carte a caso':'Gara '+(k+1)+': si sceglie'))+'</h2><div><button type="button" class="btn big acc" data-act="'+(mr2?'startd2':'newrace')+'">'+(mr2?'Avvia il draft del Megaround 2':(k===0?'Assegna le carte a caso':'Inizia la scelta della gara '+(k+1)))+'</button></div></div></div>';
-  if(r&&r.done)h+=lastResult(r,k-1);
+  if(r&&r.done){h+=lastResult(r,k-1);if(!(k===3&&S.d2done))h+='<p style="margin:10px 0 0"><button type="button" class="btn sm alt" data-act="reopen">Riapri la gara '+k+' per correggere</button></p>';}
   h+='<div class="st" style="margin-top:18px"><h2 class="t" style="font-size:26px;margin-bottom:12px">Tabellone</h2>'+board()+'</div>';
   return h;
  }
@@ -277,7 +277,7 @@ function vLive(){
  if(ph==="sel"){
   var npk=nPicks(r),who2=r.order[npk];
   h+='<div class="row" style="margin-bottom:14px"><h2 class="t" style="font-size:40px">Sceglie <span class="name-tag">'+esc(S.names[who2])+'</span></h2></div>';
-  h+='<div style="margin-bottom:18px">'+orderStrip(r.order,r.picks)+'</div>';
+  h+='<div style="margin-bottom:18px">'+orderStrip(r.order,r.picks)+(r.why&&r.why.length?'<p class="mut" style="margin:10px 0 0">Pareggi: '+esc(r.why.join(" · "))+'.</p>':'')+'</div>';
   h+='<div class="grid">'+r.order.filter(function(p){return r.picks[p]!==undefined;}).map(function(p){return aCard(r.picks[p],{btn:'<div class="row">'+dot(p)+'<b>'+esc(S.names[p])+'</b></div>'});}).join("")+'</div>';
   h+='<div class="st" style="margin-top:16px"><div class="row"><span class="grow mut">'+esc(S.names[who2])+' sceglie dal telefono. Se non ce l\'ha, il banco può scegliere al suo posto (la sua mano diventa visibile a tutti).</span><button type="button" class="btn sm alt" data-act="showhand" data-i="'+who2+'">'+(SHOWHAND===who2?'Nascondi la mano':'Scegli al posto suo')+'</button></div>';
   if(SHOWHAND===who2)h+='<div class="row" style="margin-top:10px">'+(S.hands[who2]||[]).map(function(c){return '<button type="button" class="btn alt" data-act="selpick" data-n="'+esc(c)+'" data-w="'+who2+'">'+esc(c)+' · '+(tierOf(c)||'?')+'</button>';}).join("")+'</div>';
@@ -306,9 +306,9 @@ function resultHead(r){
 function resultControls(r){
  var h='<div class="st" style="margin-top:18px">',k=S.races.length;
  if(r.w1===null){
-  h+='<h3 class="t" style="font-size:26px;margin-bottom:10px">Chi è arrivato 1°?</h3><p class="mut" style="margin:0 0 10px">Si gira una fiche oro coperta.</p><div class="row">'+r.order.map(function(p){return '<button type="button" class="btn alt" data-act="w1" data-i="'+p+'">'+dot(p)+esc(S.names[p])+'</button>';}).join("")+'</div>';
+  h+='<h3 class="t" style="font-size:26px;margin-bottom:10px">Chi è arrivato 1°?</h3><p class="mut" style="margin:0 0 10px">Si gira una fiche oro coperta.</p><div class="row">'+S.names.map(function(_,p){return p;}).map(function(p){return '<button type="button" class="btn alt" data-act="w1" data-i="'+p+'">'+dot(p)+esc(S.names[p])+'</button>';}).join("")+'</div>';
  }else if(r.w2===null){
-  h+='<h3 class="t" style="font-size:26px;margin-bottom:10px">Chi è arrivato 2°?</h3><p class="mut" style="margin:0 0 10px">Si gira una fiche argento coperta e la gara finisce.</p><div class="row">'+r.order.filter(function(p){return p!==r.w1;}).map(function(p){return '<button type="button" class="btn alt" data-act="w2" data-i="'+p+'">'+dot(p)+esc(S.names[p])+'</button>';}).join("")+'</div><p style="margin:12px 0 0"><button type="button" class="btn sm alt" data-act="unw">Annulla il 1°</button></p>';
+  h+='<h3 class="t" style="font-size:26px;margin-bottom:10px">Chi è arrivato 2°?</h3><p class="mut" style="margin:0 0 10px">Si gira una fiche argento coperta e la gara finisce.</p><div class="row">'+S.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1;}).map(function(p){return '<button type="button" class="btn alt" data-act="w2" data-i="'+p+'">'+dot(p)+esc(S.names[p])+'</button>';}).join("")+'</div><p style="margin:12px 0 0"><button type="button" class="btn sm alt" data-act="unw">Annulla il 1°</button></p>';
  }else{
   h+='<h3 class="t" style="font-size:24px;margin-bottom:6px">Gara finita!</h3><p class="mut" style="margin:0">Controllate i bronzi qui sopra, poi chiudete la gara.'+(k===RACES?' Chiudendo l\'ultima gara si rivelano le carte bonus.':'')+'</p>';
   h+='<div class="row" style="margin-top:16px"><button type="button" class="btn alt" data-act="unw2">Annulla il 2°</button><span class="grow"></span><button type="button" class="btn big acc" data-act="close">Chiudi la gara</button></div>';
@@ -393,7 +393,7 @@ function vPlayer(){
  h+=handRow(i,'Ti restano in mano');
  return h+'</div>';
 }
-var SHOWHAND=null,FARTSEEN=null,FARTTOAST=null;
+var SHOWHAND=null,SHOWPACK=null,CONFIRM=null,FARTSEEN=null,FARTTOAST=null;
 function fartKey(){return (GAME&&GAME.name?GAME.name:"x").toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,24)||"x";}
 function fartBtn(){return '<div class="fartdock"><button type="button" class="fartbtn" data-act="fart" aria-label="Fai una scoreggia: la sentono tutti, anche sul tablet"><svg viewBox="0 0 52 34" width="44" height="29" fill="none" stroke="#14121f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h9M1.5 17h7M3 23h9"/><path d="M19 27a6 6 0 0 1 .5-12 9 9 0 0 1 16.5-3 7.5 7.5 0 0 1 7 11.5A5.5 5.5 0 0 1 38 30H22.5A5 5 0 0 1 19 27z" fill="#ffffff"/><circle cx="29" cy="20" r="1.6" fill="#14121f" stroke="none"/><circle cx="35" cy="20" r="1.6" fill="#14121f" stroke="none"/></svg><span>Scoreggia!</span></button></div>';}
 function freeFart(){var k=parseInt(SND,10);if(isNaN(k)||!FARTS[k])k=Math.floor(Math.random()*FARTS.length);playClip(FARTS[k][1]);if(GAME&&BE)BE.sendFart(GAME.code,fartKey(),{clip:FARTS[k][1],name:GAME.name,n:Math.random()}).catch(function(){});}
@@ -413,10 +413,11 @@ function vHome(){
  var h='<div class="home stack">'+modeBanner()+'<span class="logo t" style="align-self:flex-start">Magical Outlet</span>';
  if(msg)h+='<div class="st msg" role="status" style="font-weight:800">'+esc(msg)+'</div>';
  h+='<form class="st stack" id="joinf" autocomplete="off"><h2 class="t" style="font-size:30px">Entra in una partita</h2>'+
-  '<div><label for="f_code">Codice partita</label><input id="f_code" class="codein" maxlength="4" inputmode="text" autocapitalize="characters" value="'+esc(pre)+'" placeholder="ABCD" required></div>'+
-  '<div><label for="f_name">Il tuo nome</label><input id="f_name" maxlength="16" value="'+esc(last)+'" placeholder="Es. Luigi" required></div>'+
-  '<button type="submit" class="btn big acc"'+(BUSY?' disabled':'')+'>Entra</button></form>';
- h+='<div class="st stack"><h2 class="t" style="font-size:24px">Sei il tablet al centro del tavolo?</h2><p class="mut" style="margin:0">Crea la partita: comparirà il codice da dare agli amici.</p><button type="button" class="btn big yel" data-act="create"'+(BUSY?' disabled':'')+'>Crea una partita</button></div></div>';
+  '<div><label for="f_code">Codice partita</label><input id="f_code" class="codein" maxlength="4" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" value="'+esc(pre)+'" placeholder="ABCD" required></div>'+
+  '<div><label for="f_name">Il tuo nome</label><input id="f_name" maxlength="16" autocomplete="nickname" value="'+esc(last)+'" placeholder="Es. Luigi" required></div>'+
+  '<button type="submit" class="btn big acc"'+(BUSY?' disabled':'')+'>'+(BUSY?'Entro…':'Entra')+'</button></form>';
+ h+=tutBtn();
+ h+='<div class="hostbox"><span class="mut">Sei il tablet al centro del tavolo?</span><button type="button" class="btn sm alt" data-act="create"'+(BUSY?' disabled':'')+'>Crea una partita</button></div></div>';
  return h;
 }
 function vLobbyHost(){
@@ -436,7 +437,7 @@ function vLobbyHost(){
 function vLobbyPlayer(){
  var names=lobbyNames(),h='<div class="ph stack">'+modeBanner();
  h+='<div class="me"><span class="dot" style="background:var(--yel)">'+esc(GAME.name.charAt(0).toUpperCase())+'</span><div class="grow"><div class="t" style="font-size:26px;line-height:1">'+esc(GAME.name)+'</div><div class="mut">Partita '+esc(GAME.code)+'</div></div><button type="button" class="btn sm alt" data-act="leave">Esci</button></div>';
- h+='<div class="st turn"><h2 class="t" style="font-size:30px">Sei dentro!</h2><p style="margin:4px 0 0;font-weight:800">Aspetta che il banco inizi il torneo.</p></div>';
+ h+='<div class="st turn"><h2 class="t" style="font-size:30px">Sei dentro!</h2><p style="margin:4px 0 0;font-weight:800">Aspetta che il banco inizi il torneo. Intanto ripassa le regole.</p></div>'+tutBtn();
  h+='<div class="st stack" style="gap:8px"><span class="lbl">In sala d\'attesa</span>'+names.map(function(n,i){return '<div class="row">'+dotN(names,i)+'<b>'+esc(n)+'</b>'+(n.toLowerCase()===GAME.name.toLowerCase()?' <span class="mut">(tu)</span>':'')+'</div>';}).join("")+'</div>';
  return h+'</div>';
 }
@@ -460,6 +461,27 @@ function vSet(){
  return h+'</div>';
 }
 
+/* ---------------- tutorial ---------------- */
+var TUT=false;
+function tutBtn(){return '<button type="button" class="btn big alt tutbtn" data-act="tut"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7M9 12h5"/></svg>Tutorial: le regole</button>';}
+function vTut(){
+ var gold=(S&&S.settings?S.settings.gold:[3,4,4,5,5,6]).slice().sort(function(a,b){return a-b;}),silv=(S&&S.settings?S.settings.silver:[1,1,2,2,2,3]).slice().sort(function(a,b){return a-b;});
+ function chips(arr,cls){return arr.map(function(v){return '<span class="disc '+cls+' mini">'+v+'</span>';}).join("");}
+ function step(n,title,body,color){return '<section class="st tstep" style="background:'+(color||'#fff')+'"><div class="row" style="gap:12px;align-items:flex-start"><span class="tnum">'+n+'</span><div class="grow"><h3 class="t" style="font-size:24px;margin-bottom:6px">'+title+'</h3>'+body+'</div></div></section>';}
+ var h='<div class="tut" role="dialog" aria-modal="true" aria-labelledby="tut_t"><div class="ph stack">';
+ h+='<div class="row tuthead"><span class="logo t" id="tut_t">Come si gioca</span><span class="grow"></span><button type="button" class="btn sm" data-act="tutclose">Chiudi</button></div>';
+ h+='<p style="font-weight:800;margin:0">Magical Outlet è un torneo di Magical Athlete: <b>6 gare</b> divise in <b>2 megaround da 3</b>. Vince chi fa più punti. Il tablet al centro fa da banco e tabellone, tu giochi dal telefono.</p>';
+ h+=step(1,'Entra nella partita','<p class="tp">Il banco crea la partita sul tablet e mostra un <b>codice di 4 lettere</b>. Inseriscilo qui con il tuo nome. Se chiudi il telefono, rientri con lo stesso codice e lo stesso nome.</p>');
+ h+=step(2,'Draft · Megaround 1','<p class="tp">Ricevi <b>4 carte segrete</b>. Ne tieni <b>1</b> e passi le altre al giocatore seduto dopo di te; poi ricevi il mazzetto di chi ti sta prima. Si fanno 3 giri, l\'ultima carta arriva da sola: finisci con <b>4 carte in mano</b>.</p>','#ffe9a8');
+ h+=step(3,'Quale carta giochi','<p class="tp"><b>Gara 1</b>: l\'app ti assegna una carta <b>a caso</b> dalla tua mano (non c\'è ancora un punteggio).</p><p class="tp"><b>Gare 2–6</b>: scegli tu dalla tua mano, uno alla volta, a partire da <b>chi ha più punti</b>. Le carte già scelte sono visibili a tutti, quindi chi sceglie dopo può contrastare. Parità di punti: sceglie prima chi nella gara precedente ha usato la carta di <b>livello più alto</b>; se ancora pari, decide il caso.</p>','#d9e6ff');
+ h+=step(4,'La gara','<p class="tp">Si gioca con le regole normali di Magical Athlete: la gara finisce quando <b>due atleti</b> tagliano il traguardo.</p><p class="tp">Parte per primo <b>chi ha meno punti</b>, poi in senso orario. Se più giocatori sono pari, <b>tirano un dado</b>: chi fa di più parte.</p>','#d2f6e3');
+ h+=step(5,'I punti','<p class="tp"><b>1° posto</b>: una fiche oro coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(gold,"g")+'</div><p class="tp"><b>2° posto</b>: una fiche argento coperta, a caso tra</p><div class="row" style="gap:6px;margin:0 0 12px">'+chips(silv,"s")+'</div><p class="tp">Ogni fiche girata viene scartata: nelle 6 gare escono tutte, una volta sola.</p><p class="tp"><span class="mini-b">+1</span> <b>Bronzo</b>: ogni casella stella e ogni potere che dà punti (Hare, Lovable Loser, Sisyphus…) vale 1 punto. Lo segni tu con il tasto <b>+1 punto</b> sul telefono.</p>','#ffe1d8');
+ h+=step(6,'Draft · Megaround 2','<p class="tp">Dopo la gara 3 ti resta <b>1 carta</b>: la tieni. Tutte le altre carte si rimischiano. Per 3 volte si rivelano 6 carte e ognuno ne prende una, a partire da <b>chi ha meno punti</b>. Torni ad avere 4 carte e si giocano le gare 4, 5 e 6 come prima.</p>','#ffe9a8');
+ h+=step(7,'Fine e bonus','<p class="tp">Dopo la gara 6 ti resta 1 carta: vale punti in più secondo il suo livello.</p><div class="row" style="gap:8px;margin:6px 0 10px"><span class="pill" style="background:#ff7a59">S +2</span><span class="pill" style="background:#ffe14d">A +2</span><span class="pill" style="background:#7fb2ff">B +1</span><span class="pill" style="background:#6fe0a3">C +1</span><span class="pill" style="background:#ff9fd2">D 0</span></div><p class="tp">Vince chi ha più punti. Parità: più vittorie, poi più bronzi.</p>','#efe2ff');
+ h+=step(8,'I tasti del telefono','<p class="tp"><b>Tocca a te</b>: il telefono suona e vibra quando devi scegliere.</p><p class="tp"><b>+1 punto</b>: per stelle e poteri, durante la gara. Sbagliato? C\'è il −1.</p><p class="tp"><b>Scoreggia!</b>: in basso, sempre disponibile. La sentono tutti, anche il tablet.</p>');
+ h+='<button type="button" class="btn big acc" data-act="tutclose" style="align-self:center">Ho capito, si gioca!</button>';
+ return h+'</div></div>';
+}
 /* ---------------- render ---------------- */
 function flipCapture(){var m={};document.querySelectorAll("[data-flip]").forEach(function(e){m[e.getAttribute("data-flip")]=e.getBoundingClientRect().top;});return m;}
 function flipPlay(m){document.querySelectorAll("[data-flip]").forEach(function(e){var k=e.getAttribute("data-flip");if(m[k]===undefined)return;var dy=m[k]-e.getBoundingClientRect().top;if(Math.abs(dy)<2)return;e.style.transition="none";e.style.transform="translateY("+dy+"px)";requestAnimationFrame(function(){requestAnimationFrame(function(){e.style.transition="transform .7s cubic-bezier(.2,.8,.2,1)";e.style.transform="";});});});}
@@ -468,6 +490,7 @@ function render(){
  var a=document.getElementById("app");ME=me();
  var act=document.activeElement,id=act&&act.id,pos=act&&act.selectionStart,vals={};
  document.querySelectorAll("#app input,#app textarea").forEach(function(e){if(e.id)vals[e.id]=e.value;});
+ var tutEl=document.querySelector(".tut"),tutTop=tutEl?tutEl.scrollTop:0;
  var m=flipCapture();pendingSeen=[];var html;
  if(!GAME)html=vHome();
  else if(!S)html='<div class="home stack"><span class="logo t">Magical Outlet</span><div class="st">Collegamento alla partita '+esc(GAME.code)+'…</div><button type="button" class="btn alt" data-act="leave">Annulla</button></div>';
@@ -477,10 +500,14 @@ function render(){
  else html=vPlayer();
  if(GAME&&GAME.role==="player"&&S)html+=fartBtn();
  if(GAME&&GAME.role==="banco")html=fartToast()+html;
+ if(CONFIRM==="leave")html=html.replace(/(data-act="leave"[^>]*>)[^<]*</g,'$1Tocca ancora per uscire<');
+ if(CONFIRM==="abort")html=html.replace(/(data-act="abort"[^>]*>)[^<]*</g,'$1Tocca ancora: annullo la gara<');
+ if(TUT)html+=vTut();
  a.innerHTML=html;
  Object.keys(vals).forEach(function(k){var e=document.getElementById(k);if(e&&!e.disabled&&k!=="f_code"&&k!=="f_name")e.value=vals[k];else if(e&&(k==="f_code"||k==="f_name")&&vals[k])e.value=vals[k];});
  var se=document.getElementById("f_snd");if(se)se.value=SND;
  pendingSeen.forEach(function(k){SEEN[k]=1;});
+ var tutEl2=document.querySelector(".tut");if(tutEl2&&tutTop)tutEl2.scrollTop=tutTop;
  flipPlay(m);
  var q=document.getElementById("qr");if(q&&window.QRCode){try{new QRCode(q,{text:joinUrl(),width:170,height:170,colorDark:"#14121f",colorLight:"#ffffff"});}catch(e){}}
  if(id){var e2=document.getElementById(id);if(e2&&e2.tagName!=="BUTTON"){e2.focus();try{e2.setSelectionRange(pos,pos);}catch(x){}}}
@@ -547,6 +574,7 @@ document.getElementById("app").addEventListener("submit",function(ev){
  if(ev.target.id==="joinf"){ev.preventDefault();joinGame(document.getElementById("f_code").value,document.getElementById("f_name").value);}
 });
 document.getElementById("app").addEventListener("change",function(ev){var t=ev.target;if(t.id==="f_snd"){SND=t.value;lsSet("ma_snd",SND);funny();}});
+function askConfirm(k){CONFIRM=k;render();setTimeout(function(){if(CONFIRM===k){CONFIRM=null;safeRender();}},4000);}
 function rm(arr,x){var k=arr.indexOf(x);if(k>=0)arr.splice(k,1);return k>=0;}
 function newRaceObj(o){return {id:"r"+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),k:o.races.length,picks:{},order:[],bz:o.names.map(function(){return 0;}),w1:null,w2:null,g:0,s:0,done:false};}
 function afterPick(p){BUSY=false;if(!p)msg="Non riuscito: forse qualcuno ha appena scelto o non è il tuo turno.";render();}
@@ -556,9 +584,14 @@ document.getElementById("app").addEventListener("click",function(ev){
  var I=+t.getAttribute("data-i"),D=+t.getAttribute("data-d"),NM=t.getAttribute("data-n"),W=+t.getAttribute("data-w");
  switch(a){
  case "create":createGame();return;
- case "leave":leave();return;
+ case "leave":if(CONFIRM!=="leave"&&S&&S.started){askConfirm("leave");return;}CONFIRM=null;leave();return;
  case "tab":TAB=t.getAttribute("data-v");confirmReset=false;render();return;
  case "fart":freeFart();return;
+ case "tut":TUT=true;render();try{var tt=document.querySelector(".tut");if(tt){tt.scrollTop=0;var cb=tt.querySelector("[data-act=tutclose]");cb&&cb.focus();}}catch(e){}return;
+ case "tutclose":TUT=false;render();return;
+ case "showpack":if(I===-1)SHOWPACK=SHOWPACK===null?-1:null;else SHOWPACK=SHOWPACK===I?-1:I;render();return;
+ case "reopen":
+  commit(function(o){var r=curOf(o);if(!r||!r.done)return false;if(o.races.length===3&&(o.d2done||o.stage==="draft2"))return false;r.done=false;if(o.stage==="end")o.stage="races";});return;
  case "showhand":SHOWHAND=SHOWHAND===I?null:I;render();return;
  case "plus":case "minus":
   var r1=cur();if(!r1||r1.done||phase(r1)==="sel"||typeof ME!=="number")return;var key=r1.id+"_"+ME;
@@ -577,7 +610,7 @@ document.getElementById("app").addEventListener("click",function(ev){
    o.names=order;o.started=true;o.races=[];o.gold=Core.shuffle(o.settings.gold,Math.random);o.silver=Core.shuffle(o.settings.silver,Math.random);dealD1(o);});return;
  /* --- draft megaround 1 (simultaneo, a passaggio) --- */
  case "d1pick":
-  if(typeof ME!=="number")return;var meI=ME;BUSY=true;render();
+  var meI=typeof ME==="number"?ME:(ME==="banco"?W:null);if(meI===null||isNaN(meI))return;BUSY=typeof ME==="number";SHOWPACK=ME==="banco"?-1:null;render();
   commit(function(o){if(o.stage!=="draft1"||!o.d1)return false;var d=o.d1,n=o.names.length;if(d.picked[meI])return false;if(!rm(d.packs[meI],NM))return false;o.hands[meI].push(NM);d.picked[meI]=true;
    if(d.picked.every(Boolean)){var np=[];for(var i=0;i<n;i++)np[(i+1)%n]=d.packs[i];d.packs=np;d.round++;d.picked=o.names.map(function(){return false;});
     if(d.packs.every(function(p){return p.length===1;})){for(var q=0;q<n;q++)o.hands[q].push(d.packs[q][0]);o.d1=null;o.stage="races";}}
@@ -604,6 +637,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "close":
   commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;r.done=true;if(o.races.length===RACES)o.stage="end";});return;
  case "abort":
+  if(CONFIRM!=="abort"){askConfirm("abort");return;}CONFIRM=null;
   commit(function(o){var r=curOf(o);if(!r||r.done)return false;o.races.pop();Object.keys(r.picks).forEach(function(p){o.hands[p].push(r.picks[p]);});if(r.w1!==null&&r.g)o.gold.push(r.g);if(r.w2!==null&&r.s)o.silver.push(r.s);});return;
  /* --- draft megaround 2 --- */
  case "startd2":
@@ -631,6 +665,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "reset2":confirmReset=false;TAB="live";commit(function(o){o.races=[];o.gold=Core.shuffle(o.settings.gold,Math.random);o.silver=Core.shuffle(o.settings.silver,Math.random);dealD1(o);});return;
  }
 });
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&TUT){TUT=false;render();}});
 /* ---------------- boot ---------------- */
 (function boot(){
  SND=lsGet("ma_snd","random");FAV=lsGet("ma_fav",{})||{};
