@@ -498,7 +498,7 @@ function vOut(){
  return '<div class="ph stack"><div class="st"><h2 class="t" style="font-size:28px">Torneo già iniziato</h2><p style="font-weight:700">Nella partita '+esc(GAME.code)+' non c\'è nessun giocatore che si chiama «'+esc(GAME.name)+'». Rientra con il nome che avevi usato: '+S.names.map(esc).join(", ")+'.</p><button type="button" class="btn acc" data-act="leave">Torna all\'inizio</button></div></div>';
 }
 function vCards(){
- var h='<div class="stack"><div class="st"><div class="lbl">Foto delle carte</div><p class="mut" style="margin:6px 0 0">Tocca «Aggiungi foto» su una carta e scatta o scegli un\'immagine (per esempio la foto della tua carta fisica). Viene rimpicciolita e salvata nel tuo database: vale per tutte le partite.</p><p class="mut" style="margin:6px 0 10px">Hai tante foto? Chiamale come la carta (es. <b>Centaur.jpg</b>, <b>Third Wheel.png</b>) e caricale tutte insieme.</p><label class="btn acc" style="margin:0">Carica tante foto<input type="file" accept="image/*" multiple data-bulk="1" style="display:none"></label></div>';
+ var h='<div class="stack"><div class="st"><div class="lbl">Foto delle carte</div><p class="mut" style="margin:6px 0 0">Tocca «Aggiungi foto» su una carta e scatta o scegli un\'immagine (per esempio la foto della tua carta fisica). Viene rimpicciolita e salvata nel tuo database: vale per tutte le partite.</p><p class="mut" style="margin:6px 0 10px">Hai tante foto? Chiamale come la carta (es. <b>Centaur.jpg</b>, <b>Third Wheel.png</b>) e caricale tutte insieme. Va bene anche un file .zip.</p><label class="btn acc" style="margin:0">Carica tante foto<input type="file" accept="image/*,.zip,application/zip" multiple data-bulk="1" style="display:none"></label></div>';
  ["S","A","B","C","D",""].forEach(function(t){var l=S.roster.filter(function(x){return x.t===t;});if(!l.length)return;h+='<h2 class="t" style="font-size:28px">'+(t?'Livello '+t:'Senza livello')+'</h2><div class="grid">'+l.map(function(x){var k=tkey(x.n);return aCard(x.n,{btn:'<div class="row"><label class="btn sm alt" style="margin:0">'+(IMGS[k]?'Cambia foto':'Aggiungi foto')+'<input type="file" accept="image/*" data-img="'+esc(x.n)+'" style="display:none"></label>'+(IMGS[k]?'<button type="button" class="btn sm alt" data-act="delimg" data-n="'+esc(x.n)+'">Togli</button>':'')+'</div>'});}).join("")+'</div>';});
  return h+'</div>';
 }
@@ -645,7 +645,16 @@ document.getElementById("app").addEventListener("change",function(ev){
   resizeImage(t.files[0]).then(function(d){return BE.setImage(tkey(nm),d);}).then(function(){msg="Foto di "+nm+" salvata.";render();}).catch(function(e){msg="Foto non salvata: "+((e&&e.message)||"formato non letto");render();});}
 });
 function normKey(x){return String(x).toLowerCase().replace(/\.[a-z0-9]+$/,"").replace(/[^a-z0-9]/g,"");}
+function loadJSZip(){if(window.JSZip)return Promise.resolve(window.JSZip);return new Promise(function(res,rej){var sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";sc.onload=function(){res(window.JSZip);};sc.onerror=function(){rej(new Error("non riesco a leggere lo zip"));};document.head.appendChild(sc);});}
+async function expandZips(files){
+ var out=[];for(var q=0;q<files.length;q++){var f=files[q];
+  if(/\.zip$/i.test(f.name)||/zip/.test(f.type)){msg="Apro "+f.name+"…";render();var Z=await loadJSZip();var z=await Z.loadAsync(f);var ents=Object.keys(z.files).filter(function(p){return !z.files[p].dir&&/\.(jpe?g|png|webp)$/i.test(p)&&p.indexOf("__MACOSX")<0;});
+   for(var e=0;e<ents.length;e++){var bl=await z.files[ents[e]].async("blob");var nm=ents[e].split("/").pop();out.push(new File([bl],nm,{type:/png$/i.test(nm)?"image/png":"image/jpeg"}));}}
+  else out.push(f);}
+ return out;
+}
 async function bulkImages(files){
+ try{files=await expandZips(files);}catch(e){msg="Zip non letto: "+(e.message||e);render();return;}
  var map={};S.roster.forEach(function(x){map[normKey(x.n)]=x.n;});var ok=[],miss=[];
  for(var q=0;q<files.length;q++){var f=files[q],n=map[normKey(f.name)];if(!n){miss.push(f.name);continue;}
   msg="Carico "+(q+1)+" di "+files.length+": "+n+"…";render();
