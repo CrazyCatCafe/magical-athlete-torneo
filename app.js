@@ -498,7 +498,7 @@ function vOut(){
  return '<div class="ph stack"><div class="st"><h2 class="t" style="font-size:28px">Torneo già iniziato</h2><p style="font-weight:700">Nella partita '+esc(GAME.code)+' non c\'è nessun giocatore che si chiama «'+esc(GAME.name)+'». Rientra con il nome che avevi usato: '+S.names.map(esc).join(", ")+'.</p><button type="button" class="btn acc" data-act="leave">Torna all\'inizio</button></div></div>';
 }
 function vCards(){
- var h='<div class="stack"><div class="st"><div class="lbl">Foto delle carte</div><p class="mut" style="margin:6px 0 0">Tocca «Aggiungi foto» su una carta e scatta o scegli un\'immagine (per esempio la foto della tua carta fisica). Viene rimpicciolita e salvata nel tuo database: vale per tutte le partite.</p><p class="mut" style="margin:6px 0 10px">Hai tante foto? Chiamale come la carta (es. <b>Centaur.jpg</b>, <b>Third Wheel.png</b>) e caricale tutte insieme. Va bene anche un file .zip.</p><label class="btn acc" style="margin:0">Carica tante foto<input type="file" accept="image/*,.zip,application/zip" multiple data-bulk="1" style="display:none"></label></div>';
+ var h='<div class="stack"><div class="st"><div class="lbl">Foto delle carte</div><p class="mut" style="margin:6px 0 0">Tocca «Aggiungi foto» su una carta e scatta o scegli un\'immagine (per esempio la foto della tua carta fisica). Viene rimpicciolita e salvata nel tuo database: vale per tutte le partite.</p><p class="mut" style="margin:6px 0 10px">Hai tante foto? Chiamale come la carta (es. <b>Centaur.jpg</b>, <b>Third Wheel.png</b>) e caricale tutte insieme, oppure carica direttamente il file .zip.</p><div class="row"><label class="btn acc" style="margin:0">Carica lo zip<input type="file" accept=".zip,application/zip,application/x-zip-compressed,application/octet-stream" data-bulk="1" style="display:none"></label><label class="btn alt" style="margin:0">Scegli più foto<input type="file" accept="image/*" multiple data-bulk="1" style="display:none"></label></div></div>';
  ["S","A","B","C","D",""].forEach(function(t){var l=S.roster.filter(function(x){return x.t===t;});if(!l.length)return;h+='<h2 class="t" style="font-size:28px">'+(t?'Livello '+t:'Senza livello')+'</h2><div class="grid">'+l.map(function(x){var k=tkey(x.n);return aCard(x.n,{btn:'<div class="row"><label class="btn sm alt" style="margin:0">'+(IMGS[k]?'Cambia foto':'Aggiungi foto')+'<input type="file" accept="image/*" data-img="'+esc(x.n)+'" style="display:none"></label>'+(IMGS[k]?'<button type="button" class="btn sm alt" data-act="delimg" data-n="'+esc(x.n)+'">Togli</button>':'')+'</div>'});}).join("")+'</div>';});
  return h+'</div>';
 }
@@ -642,9 +642,10 @@ document.getElementById("app").addEventListener("change",function(ev){
  if(t.getAttribute&&t.getAttribute("data-bulk")&&t.files&&t.files.length){bulkImages(Array.prototype.slice.call(t.files));return;}
  var nm=t.getAttribute&&t.getAttribute("data-img");
  if(nm&&t.files&&t.files[0]){msg="Carico la foto di "+nm+"…";render();
-  resizeImage(t.files[0]).then(function(d){return BE.setImage(tkey(nm),d);}).then(function(){msg="Foto di "+nm+" salvata.";render();}).catch(function(e){msg="Foto non salvata: "+((e&&e.message)||"formato non letto");render();});}
+  resizeImage(t.files[0]).then(function(d){return BE.setImage(tkey(nm),d);}).then(function(){msg="Foto di "+nm+" salvata.";render();}).catch(function(e){var em=String((e&&e.message)||"formato non letto");msg=/permission|denied/i.test(em)?"Firebase non accetta le foto: aggiorna le Regole del database.":"Foto non salvata: "+em;render();});}
 });
 function normKey(x){return String(x).toLowerCase().replace(/\.[a-z0-9]+$/,"").replace(/[^a-z0-9]/g,"");}
+function withTimeout(p,ms){return Promise.race([p,new Promise(function(_,rej){setTimeout(function(){rej(new Error("connessione lenta o assente"));},ms);})]);}
 function loadJSZip(){if(window.JSZip)return Promise.resolve(window.JSZip);return new Promise(function(res,rej){var sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";sc.onload=function(){res(window.JSZip);};sc.onerror=function(){rej(new Error("non riesco a leggere lo zip"));};document.head.appendChild(sc);});}
 async function expandZips(files){
  var out=[];for(var q=0;q<files.length;q++){var f=files[q];
@@ -655,11 +656,14 @@ async function expandZips(files){
 }
 async function bulkImages(files){
  try{files=await expandZips(files);}catch(e){msg="Zip non letto: "+(e.message||e);render();return;}
- var map={};S.roster.forEach(function(x){map[normKey(x.n)]=x.n;});var ok=[],miss=[];
+ var map={};S.roster.forEach(function(x){map[normKey(x.n)]=x.n;});var ok=[],miss=[],bad=[],err=null;
+ if(!files.length){msg="Nessuna immagine trovata nel file scelto.";render();return;}
  for(var q=0;q<files.length;q++){var f=files[q],n=map[normKey(f.name)];if(!n){miss.push(f.name);continue;}
   msg="Carico "+(q+1)+" di "+files.length+": "+n+"…";render();
-  try{var d=await resizeImage(f);await BE.setImage(tkey(n),d);ok.push(n);}catch(e){miss.push(f.name);}}
- msg="Foto caricate: "+ok.length+"."+(miss.length?" Non abbinate (controlla il nome del file): "+miss.join(", ")+".":"");render();
+  var d;try{d=await resizeImage(f);}catch(e){bad.push(f.name);continue;}
+  try{await withTimeout(BE.setImage(tkey(n),d),15000);ok.push(n);}catch(e){err=e;break;}}
+ if(err){var em=String((err&&err.message)||err);msg=/permission|denied/i.test(em)?"Firebase non accetta le foto: aggiorna le Regole del database (vedi istruzioni). Caricate finora: "+ok.length+".":"Caricamento interrotto ("+em+"). Caricate finora: "+ok.length+".";render();return;}
+ msg="Foto caricate: "+ok.length+" di "+files.length+"."+(miss.length?" Nome non riconosciuto: "+miss.join(", ")+".":"")+(bad.length?" Immagini non leggibili: "+bad.join(", ")+".":"");render();
 }
 function askConfirm(k){CONFIRM=k;render();setTimeout(function(){if(CONFIRM===k){CONFIRM=null;safeRender();}},4000);}
 function rm(arr,x){var k=arr.indexOf(x);if(k>=0)arr.splice(k,1);return k>=0;}
