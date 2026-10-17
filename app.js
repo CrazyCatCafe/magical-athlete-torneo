@@ -35,7 +35,7 @@ function setTier(o,n,t){for(var k=0;k<o.roster.length;k++)if(o.roster[k].n===n)o
 function shifted(t,d){var i=TLIST.indexOf(t||"D");if(i<0)i=0;return TLIST[Math.max(0,Math.min(4,i+d))];}
 function lastCands(r){return S.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});}
 function tierPreview(r){var out=[];var up=r.picks[r.w1],t=tierOf(up);if(t!=="S")out.push(esc(up)+' sale: '+(t||'D')+' → '+shifted(t,1));else out.push(esc(up)+' è già S');if(r.last!==null&&r.last!==undefined){var dn=r.picks[r.last],t2=tierOf(dn);out.push(t2!=="D"?esc(dn)+' scende: '+(t2||'D')+' → '+shifted(t2,-1):esc(dn)+' è già D');}return out;}
-var LASTSEL=[],GTIERS={};
+var TIEMODE=false,LASTSEL=[],GTIERS={};
 function tkey(n){return String(n).replace(/[^A-Za-z0-9]/g,"_");}
 function applyGlobalTiers(o){o.roster.forEach(function(x){var t=GTIERS[tkey(x.n)];if(t&&TRANK[t])x.t=t;});}
 function rosterTierMap(ro){var m={};ro.forEach(function(x){m[tkey(x.n)]=x.t||"D";});return m;}
@@ -334,14 +334,19 @@ function resultControls(r){
  }else if(r.w2===null){
   h+='<h3 class="t" style="font-size:26px;margin-bottom:10px">Chi è arrivato 2°?</h3><p class="mut" style="margin:0 0 10px">Si gira una fiche argento coperta e la gara finisce.</p><div class="row">'+S.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1;}).map(function(p){return '<button type="button" class="btn alt" data-act="w2" data-i="'+p+'">'+dot(p)+esc(S.names[p])+'</button>';}).join("")+'</div><p style="margin:12px 0 0"><button type="button" class="btn sm alt" data-act="unw">Annulla il 1°</button></p>';
  }else{
-  var cands=lastCands(r);
+  var cands=lastCands(r),hasLast=r.last!==null&&r.last!==undefined;
   if(cands.length){
-   h+='<h3 class="t" style="font-size:26px;margin-bottom:6px">Chi è arrivato ultimo?</h3><p class="mut" style="margin:0 0 10px">La sua carta scende di un livello, quella del vincitore sale di uno. Se più atleti sono pari all\'ultimo posto, seleziona tutti e sorteggia.</p>';
-   h+='<div class="row">'+cands.map(function(p){var on=r.last===p||LASTSEL.indexOf(p)>=0;return '<button type="button" class="btn '+(r.last===p?'acc':(on?'yel':'alt'))+'" data-act="lastsel" data-i="'+p+'" aria-pressed="'+on+'">'+dot(p)+esc(S.names[p])+' · '+esc(r.picks[p])+'</button>';}).join("")+'</div>';
-   if(r.last===null||r.last===undefined){
-    if(LASTSEL.length===1)h+='<p style="margin:12px 0 0"><button type="button" class="btn acc" data-act="setlast">Ultimo: '+esc(S.names[LASTSEL[0]])+'</button></p>';
-    else if(LASTSEL.length>1)h+='<p style="margin:12px 0 0"><button type="button" class="btn acc" data-act="setlast">Pareggio: sorteggia tra '+LASTSEL.length+'</button></p>';
-   }else h+='<p style="margin:12px 0 0;font-weight:800">Ultimo: '+esc(S.names[r.last])+(r.lastDraw&&r.lastDraw.length>1?' (sorteggiato tra '+r.lastDraw.map(function(p){return esc(S.names[p]);}).join(", ")+')':'')+' <button type="button" class="btn sm alt" data-act="unlast">Cambia</button></p>';
+   h+='<h3 class="t" style="font-size:26px;margin-bottom:6px">Chi è arrivato ultimo?</h3>';
+   if(!TIEMODE){
+    h+='<p class="mut" style="margin:0 0 10px">Tocca il giocatore arrivato ultimo. La sua carta scende di un livello, quella del vincitore sale di uno.</p>';
+    h+='<div class="row">'+cands.map(function(p){var on=r.last===p;return '<button type="button" class="btn '+(on?'acc':'alt')+'" data-act="pickLast" data-i="'+p+'" aria-pressed="'+on+'">'+dot(p)+esc(S.names[p])+' · '+esc(r.picks[p])+'</button>';}).join("")+'</div>';
+    if(hasLast&&r.lastDraw&&r.lastDraw.length>1)h+='<p style="margin:10px 0 0;font-weight:800">Sorteggiato tra '+r.lastDraw.map(function(p){return esc(S.names[p]);}).join(", ")+'.</p>';
+    h+='<p style="margin:12px 0 0"><button type="button" class="btn sm alt" data-act="tiemode">Pari all\'ultimo posto? Sorteggia</button></p>';
+   }else{
+    h+='<p class="mut" style="margin:0 0 10px">Seleziona tutti gli atleti pari all\'ultimo posto, poi sorteggia.</p>';
+    h+='<div class="row">'+cands.map(function(p){var on=LASTSEL.indexOf(p)>=0;return '<button type="button" class="btn '+(on?'yel':'alt')+'" data-act="lastsel" data-i="'+p+'" aria-pressed="'+on+'">'+(on?'✓ ':'')+dot(p)+esc(S.names[p])+' · '+esc(r.picks[p])+'</button>';}).join("")+'</div>';
+    h+='<div class="row" style="margin-top:12px"><button type="button" class="btn acc" data-act="setlast"'+(LASTSEL.length<2?' disabled':'')+'>Sorteggia tra '+LASTSEL.length+'</button><button type="button" class="btn sm alt" data-act="tiemode">Annulla</button></div>';
+   }
   }
   var ready=!cands.length||(r.last!==null&&r.last!==undefined);
   if(ready)h+='<div class="st msg" style="margin-top:14px;box-shadow:none"><div class="lbl">Livelli che cambiano</div><div style="font-weight:800">'+tierPreview(r).join(' · ')+'</div></div>';
@@ -627,10 +632,14 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "tut":TUT=true;render();try{var tt=document.querySelector(".tut");if(tt){tt.scrollTop=0;var cb=tt.querySelector("[data-act=tutclose]");cb&&cb.focus();}}catch(e){}return;
  case "tutclose":TUT=false;render();return;
  case "showpack":if(I===-1)SHOWPACK=SHOWPACK===null?-1:null;else SHOWPACK=SHOWPACK===I?-1:I;render();return;
+ case "tiemode":TIEMODE=!TIEMODE;LASTSEL=[];render();return;
+ case "pickLast":
+  var cur0=cur();var same=cur0&&cur0.last===I;
+  commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;if(I===r.w1||I===r.w2)return false;if(same){r.last=null;r.lastDraw=null;}else{r.last=I;r.lastDraw=[I];}});return;
  case "lastsel":var li=LASTSEL.indexOf(I);if(li>=0)LASTSEL.splice(li,1);else LASTSEL.push(I);render();return;
  case "setlast":
   var sel=LASTSEL.slice();if(!sel.length)return;
-  commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;var c=sel.filter(function(p){return p!==r.w1&&p!==r.w2;});if(!c.length)return false;r.last=c[Math.floor(Math.random()*c.length)];r.lastDraw=c;}).then(function(){LASTSEL=[];render();});return;
+  commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;var c=sel.filter(function(p){return p!==r.w1&&p!==r.w2;});if(!c.length)return false;r.last=c[Math.floor(Math.random()*c.length)];r.lastDraw=c;}).then(function(){LASTSEL=[];TIEMODE=false;render();});return;
  case "unlast":commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.last=null;r.lastDraw=null;});LASTSEL=[];return;
  case "reopen":
   var RV=null;commit(function(o){RV=null;var r=curOf(o);if(!r||!r.done)return false;if(o.races.length===3&&(o.d2done||o.stage==="draft2"))return false;RV=(r.tchg||[]).slice();RV.slice().reverse().forEach(function(c){setTier(o,c.n,c.from);});r.tchg=null;r.done=false;if(o.stage==="end")o.stage="races";}).then(function(ok){if(ok&&RV)RV.forEach(function(c){BE.shiftTier(tkey(c.n),c.to,TRANK[c.to]>TRANK[c.from]?-1:1);});});return;
@@ -680,7 +689,7 @@ document.getElementById("app").addEventListener("click",function(ev){
   var CH=null;commit(function(o){CH=null;var r=curOf(o);if(!r||r.w2===null||r.done)return false;var others=o.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});if(others.length&&(r.last===null||r.last===undefined))return false;
    r.tchg=[];var up=r.picks[r.w1],f1=tierIn(o,up),t1=shifted(f1,1);if(t1!==f1){setTier(o,up,t1);r.tchg.push({n:up,from:f1,to:t1});}
    if(r.last!==null&&r.last!==undefined){var dn=r.picks[r.last],f2=tierIn(o,dn),t2=shifted(f2,-1);if(t2!==f2){setTier(o,dn,t2);r.tchg.push({n:dn,from:f2,to:t2});}}
-   r.done=true;CH=r.tchg.slice();if(o.races.length===RACES)o.stage="end";}).then(function(ok){if(ok&&CH)CH.forEach(function(c){BE.shiftTier(tkey(c.n),c.from,TRANK[c.to]>TRANK[c.from]?1:-1);});});LASTSEL=[];return;
+   r.done=true;CH=r.tchg.slice();TIEMODE=false;if(o.races.length===RACES)o.stage="end";}).then(function(ok){if(ok&&CH)CH.forEach(function(c){BE.shiftTier(tkey(c.n),c.from,TRANK[c.to]>TRANK[c.from]?1:-1);});});LASTSEL=[];return;
  case "abort":
   if(CONFIRM!=="abort"){askConfirm("abort");return;}CONFIRM=null;
   commit(function(o){var r=curOf(o);if(!r||r.done)return false;o.races.pop();Object.keys(r.picks).forEach(function(p){o.hands[p].push(r.picks[p]);});if(r.w1!==null&&r.g)o.gold.push(r.g);if(r.w2!==null&&r.s)o.silver.push(r.s);});return;
