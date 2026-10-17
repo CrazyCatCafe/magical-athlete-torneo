@@ -468,7 +468,7 @@ function vHome(){
   '<div><label for="f_team">Nome del tuo team</label><input id="f_team" maxlength="24" value="'+esc(lastTeam)+'" placeholder="Es. I Fulmini di Cà Granda"></div>'+
   '<button type="submit" class="btn big acc"'+(BUSY?' disabled':'')+'>'+(BUSY?'Entro…':'Entra')+'</button></form>';
  h+=tutBtn();
- h+='<div class="hostbox"><span class="mut">Sei il tablet al centro del tavolo?</span><button type="button" class="btn sm alt" data-act="create"'+(BUSY?' disabled':'')+'>Crea una partita</button></div></div>';
+ h+='<div class="hostbox"><span class="mut">Sei il tablet al centro del tavolo?</span><button type="button" class="btn sm alt" data-act="create"'+(BUSY?' disabled':'')+'>Crea una partita</button></div><p class="mut" style="text-align:center;margin:4px 0 0"><a href="admin.html" style="color:inherit;font-weight:800">Manutenzione</a></p></div>';
  return h;
 }
 function vLobbyHost(){
