@@ -12,6 +12,13 @@
       "tiers": {
         ".read": true,
         ".write": true
+      },
+      "images": {
+        ".read": true,
+        ".write": true,
+        "$card": {
+          ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length < 300000"
+        }
       }
     }
   }
