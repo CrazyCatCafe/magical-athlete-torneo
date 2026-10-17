@@ -498,7 +498,7 @@ function vOut(){
  return '<div class="ph stack"><div class="st"><h2 class="t" style="font-size:28px">Torneo già iniziato</h2><p style="font-weight:700">Nella partita '+esc(GAME.code)+' non c\'è nessun giocatore che si chiama «'+esc(GAME.name)+'». Rientra con il nome che avevi usato: '+S.names.map(esc).join(", ")+'.</p><button type="button" class="btn acc" data-act="leave">Torna all\'inizio</button></div></div>';
 }
 function vCards(){
- var h='<div class="stack"><div class="st"><div class="lbl">Foto delle carte</div><p class="mut" style="margin:6px 0 0">Tocca «Aggiungi foto» su una carta e scatta o scegli un\'immagine (per esempio la foto della tua carta fisica). Viene rimpicciolita e salvata nel tuo database: vale per tutte le partite.</p></div>';
+ var h='<div class="stack"><div class="st"><div class="lbl">Foto delle carte</div><p class="mut" style="margin:6px 0 0">Tocca «Aggiungi foto» su una carta e scatta o scegli un\'immagine (per esempio la foto della tua carta fisica). Viene rimpicciolita e salvata nel tuo database: vale per tutte le partite.</p><p class="mut" style="margin:6px 0 10px">Hai tante foto? Chiamale come la carta (es. <b>Centaur.jpg</b>, <b>Third Wheel.png</b>) e caricale tutte insieme.</p><label class="btn acc" style="margin:0">Carica tante foto<input type="file" accept="image/*" multiple data-bulk="1" style="display:none"></label></div>';
  ["S","A","B","C","D",""].forEach(function(t){var l=S.roster.filter(function(x){return x.t===t;});if(!l.length)return;h+='<h2 class="t" style="font-size:28px">'+(t?'Livello '+t:'Senza livello')+'</h2><div class="grid">'+l.map(function(x){var k=tkey(x.n);return aCard(x.n,{btn:'<div class="row"><label class="btn sm alt" style="margin:0">'+(IMGS[k]?'Cambia foto':'Aggiungi foto')+'<input type="file" accept="image/*" data-img="'+esc(x.n)+'" style="display:none"></label>'+(IMGS[k]?'<button type="button" class="btn sm alt" data-act="delimg" data-n="'+esc(x.n)+'">Togli</button>':'')+'</div>'});}).join("")+'</div>';});
  return h+'</div>';
 }
@@ -639,10 +639,19 @@ function resizeImage(file){
 document.getElementById("app").addEventListener("change",function(ev){
  var t=ev.target;
  if(t.id==="f_snd"){SND=t.value;lsSet("ma_snd",SND);funny();return;}
+ if(t.getAttribute&&t.getAttribute("data-bulk")&&t.files&&t.files.length){bulkImages(Array.prototype.slice.call(t.files));return;}
  var nm=t.getAttribute&&t.getAttribute("data-img");
  if(nm&&t.files&&t.files[0]){msg="Carico la foto di "+nm+"…";render();
   resizeImage(t.files[0]).then(function(d){return BE.setImage(tkey(nm),d);}).then(function(){msg="Foto di "+nm+" salvata.";render();}).catch(function(e){msg="Foto non salvata: "+((e&&e.message)||"formato non letto");render();});}
 });
+function normKey(x){return String(x).toLowerCase().replace(/\.[a-z0-9]+$/,"").replace(/[^a-z0-9]/g,"");}
+async function bulkImages(files){
+ var map={};S.roster.forEach(function(x){map[normKey(x.n)]=x.n;});var ok=[],miss=[];
+ for(var q=0;q<files.length;q++){var f=files[q],n=map[normKey(f.name)];if(!n){miss.push(f.name);continue;}
+  msg="Carico "+(q+1)+" di "+files.length+": "+n+"…";render();
+  try{var d=await resizeImage(f);await BE.setImage(tkey(n),d);ok.push(n);}catch(e){miss.push(f.name);}}
+ msg="Foto caricate: "+ok.length+"."+(miss.length?" Non abbinate (controlla il nome del file): "+miss.join(", ")+".":"");render();
+}
 function askConfirm(k){CONFIRM=k;render();setTimeout(function(){if(CONFIRM===k){CONFIRM=null;safeRender();}},4000);}
 function rm(arr,x){var k=arr.indexOf(x);if(k>=0)arr.splice(k,1);return k>=0;}
 function newRaceObj(o){return {id:"r"+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),k:o.races.length,picks:{},order:[],bz:o.names.map(function(){return 0;}),w1:null,w2:null,g:0,s:0,last:null,first:null,starterBy:null,done:false};}
