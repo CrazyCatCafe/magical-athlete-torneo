@@ -821,7 +821,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "tutclose":TUT=false;render();return;
  case "card":if(!NM)return;CARDV=NM;render();return;
  case "sheet":if(!NM)return;SHEET={n:NM,a:t.getAttribute("data-a")};render();return;
- case "sheetclose":if(ev.target.closest(".sheet")&&!ev.target.closest("button"))return;SHEET=null;render();return;
+ case "sheetclose":if(ev.target.closest(".sheet")&&!ev.target.closest("button"))return;SHEET=null;CARDV=null;render();return;
  case "cardclose":if(ev.target.closest(".cm-in")&&!ev.target.closest("button"))return;CARDV=null;render();return;
  case "stats":STATSV=true;render();try{var sx=document.querySelector(".tut");if(sx)sx.scrollTop=0;}catch(e){}return;
  case "statsclose":STATSV=false;render();return;
