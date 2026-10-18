@@ -210,7 +210,7 @@ document.getElementById("app").addEventListener("click",async function(ev){
  if(a==="impprev"){var it=document.getElementById("imptxt");if(it)IMPTXT=it.value;prepImport();return;}
  if(a==="impsave"){if(!IMP||!IMP.length)return;syncEdit();edSort();IMP.forEach(function(t){t.rows=t.rows.filter(function(r){return String(r.name).trim();}).map(function(r){return {name:normSeat(r.name),p:r.p};});});
   var codes={},dupc=false;IMP.forEach(function(t){if(t.code){if(codes[t.code])dupc=true;codes[t.code]=1;}});if(dupc){MSG="Due tornei puntano alla stessa partita: cambia la scelta.";draw();return;}
-  for(var ii=0;ii<IMP.length;ii++){var tt=IMP[ii],gg2=(GAMES||[]).filter(function(g){return g.code===tt.code;})[0],hid2=tt.code?histByCode(tt.code):null,dt2=new Date(tt.date+"T20:00:00").getTime();
+  for(var ii=0;ii<IMP.length;ii++){var tt=IMP[ii],gg2=(GAMES||[]).filter(function(g){return g.code===tt.code;})[0],hid2=tt.code?histByCode(tt.code):null,dt2=new Date(tt.date+"T12:00:00").getTime();
    var id2=hid2||(tt.code?"g_"+tt.code+"_"+((gg2&&gg2.created)||dt2):"m_"+dt2+"_"+ii);
    var pos=0,lastP=null;var ent2={date:isNaN(dt2)?Date.now():dt2,code:tt.code||"",races:[],manual:true,players:tt.rows.map(function(r,q){return {name:r.name,team:"",pos:q+1,p:r.p,rw:0,b:0,f:0,fb:0,cards:[],last:""};})};
    await wt(DB.ref("global/history/"+id2).set(ent2));HIST[id2]=ent2;await registerNames(tt.rows.map(function(r){return r.name;}));}
@@ -229,7 +229,7 @@ document.getElementById("app").addEventListener("click",async function(ev){
   if(rows.length<2){MSG="Servono almeno 2 giocatori.";draw();return;}
   var names={},dup=false;rows.forEach(function(r){Core.members(r.name).forEach(function(m){var k=nk(m);if(names[k])dup=true;names[k]=1;});});if(dup){MSG="Lo stesso nome compare due volte.";draw();return;}
   rows.forEach(function(r){r.name=normSeat(r.name);});
-  var old=HIST[EDIT.id]||{},dt=new Date(EDIT.date+"T20:00:00").getTime();
+  var old=HIST[EDIT.id]||{},dt=(old.date&&!old.manual&&isoDay(old.date)===EDIT.date)?old.date:new Date(EDIT.date+"T12:00:00").getTime();
   var ent={date:isNaN(dt)?(old.date||Date.now()):dt,code:EDIT.code||old.code||"",tid:old.tid||"",races:old.races||[],manual:true,
    players:rows.map(function(r,q){var o=(old.players||[]).filter(function(p){return nk(p.name)===nk(r.name);})[0]||{};return {name:r.name,team:r.team||o.team||"",pos:q+1,p:r.p,rw:o.rw||0,b:o.b||0,f:o.f||0,fb:o.fb||0,cards:o.cards||[],last:o.last||""};})};
   await wt(DB.ref("global/history/"+EDIT.id).set(ent));HIST[EDIT.id]=ent;
