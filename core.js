@@ -20,3 +20,26 @@ var Core={
  points:function(S){var p=S.names.map(function(){return 0;}),w=S.names.map(function(){return 0;}),b=S.names.map(function(){return 0;});S.races.forEach(function(R){if(!R.done)return;S.names.forEach(function(_,i){var v=Math.max(0,((R.bz&&R.bz[i])||0)+(BONUS[R.id+"_"+i]||0));b[i]+=v;p[i]+=v;});if(R.w1!==undefined&&R.w1!==null){p[R.w1]+=R.g||0;w[R.w1]++;}if(R.w2!==undefined&&R.w2!==null){p[R.w2]+=R.s||0;}});return {p:p,w:w,b:b};},
  standings:function(S){var P=Core.points(S);var rows=S.names.map(function(n,i){return {i:i,n:n,p:P.p[i],w:P.w[i],b:P.b[i]};});rows.sort(function(a,b){return b.p-a.p||b.w-a.w||b.b-a.b||a.i-b.i;});return rows;}
 };
+/* ---- Elo multigiocatore (Magical Outlet) ----
+ Ogni torneo = scontri a coppie tra tutti i giocatori. Chi finisce con più punti vince lo scontro (1),
+ pari punti = pareggio (0,5). Variazione = K/(N-1) * somma(risultato - atteso). Partenza 1500, K 24,
+ K doppio nei primi 3 tornei di ciascuno. Si calcola in ordine di data su tutto lo storico. */
+Core.ELO={start:1500,k:24,prov:3};
+Core.nameKey=function(n){return String(n||"x").toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,24)||"x";};
+Core.elo=function(hist){
+ var E=Core.ELO,R={},per={},series={};
+ var list=(hist||[]).filter(function(h){return h&&h.players&&h.players.length>1;}).slice().sort(function(a,b){return (a.date||0)-(b.date||0);});
+ list.forEach(function(h,ti){
+  var ps=h.players.map(function(p){var k=Core.nameKey(p.name);if(!R[k])R[k]={name:p.name,r:E.start,n:0};return {k:k,p:+p.p||0};}),n=ps.length,d={};
+  ps.forEach(function(a){var s=0;ps.forEach(function(b){if(a===b)return;var ex=1/(1+Math.pow(10,(R[b.k].r-R[a.k].r)/400));var res=a.p>b.p?1:(a.p===b.p?0.5:0);s+=res-ex;});
+   var K=E.k*(R[a.k].n<E.prov?2:1);d[a.k]=K/(n-1)*s;});
+  per[h.id||("t"+ti)]={};
+  ps.forEach(function(a){var b0=R[a.k].r;R[a.k].r=b0+d[a.k];R[a.k].n++;R[a.k].name=h.players.filter(function(p){return Core.nameKey(p.name)===a.k;})[0].name;
+   per[h.id||("t"+ti)][a.k]={b:Math.round(b0),a:Math.round(R[a.k].r),d:Math.round(R[a.k].r)-Math.round(b0)};
+   (series[a.k]=series[a.k]||[]).push({t:ti,date:h.date,r:Math.round(R[a.k].r),d:Math.round(R[a.k].r)-Math.round(b0)});});
+ });
+ Object.keys(R).forEach(function(k){R[k].r=Math.round(R[k].r);});
+ return {ratings:R,per:per,series:series,list:list};
+};
+/* scrive l'Elo dentro ogni torneo (prima/dopo/variazione) */
+Core.eloAnnotate=function(hist){var e=Core.elo(hist);e.list.forEach(function(h,ti){var m=e.per[h.id||("t"+ti)]||{};h.players.forEach(function(p){var x=m[Core.nameKey(p.name)];if(x)p.elo=x;});});return e;};

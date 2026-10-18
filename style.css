@@ -149,6 +149,17 @@ label{font-weight:800;display:block;margin-bottom:6px}
 .cardmodal{display:flex;align-items:center;justify-content:center;background:rgba(20,18,31,.55)}
 .cm-in{width:min(420px,100%)}
 .stbl{overflow-x:auto;margin-top:8px}
-.sr{display:grid;grid-template-columns:minmax(120px,1.6fr) repeat(6,minmax(64px,1fr));gap:6px;align-items:center;padding:8px 0;border-top:2px dashed #c9cdf0;font-variant-numeric:tabular-nums;min-width:560px}
+.sr{display:grid;grid-template-columns:minmax(120px,1.6fr) repeat(7,minmax(60px,1fr));gap:6px;align-items:center;padding:8px 0;border-top:2px dashed #c9cdf0;font-variant-numeric:tabular-nums;min-width:620px}
 .sr.sh{border-top:0;font-weight:900;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .sr span:not(:first-child){text-align:center}
+.chartwrap{overflow-x:auto}
+.elochart{display:block;width:100%;height:auto;font-family:Nunito,system-ui,sans-serif}
+.elochart .ax{font-size:11px;font-weight:700;fill:#6b6886;font-variant-numeric:tabular-nums}
+.elochart .lab{font-size:12px;font-weight:900;fill:var(--ink);font-variant-numeric:tabular-nums}
+.elochart [data-act]{cursor:pointer}
+.eleg{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:14px}
+.eleg i{width:14px;height:4px;border-radius:2px;display:inline-block}
+.elo{font-variant-numeric:tabular-nums}
+.elod{font-weight:900;font-size:13px;font-variant-numeric:tabular-nums;min-width:38px;text-align:right;color:var(--muted)}
+.elod.up{color:#0b7a3e}.elod.dn{color:#b3261e}
+#f_pick{width:100%;min-height:52px;font:800 18px/1 Nunito,system-ui,sans-serif;border:3px solid var(--ink);border-radius:14px;padding:0 12px;background:var(--paper);color:var(--ink)}

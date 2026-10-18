@@ -109,6 +109,7 @@ function playerByName(name){var p=null;Object.keys(PLAYERS).forEach(function(k){
 function playerIdByName(name){var id=null;Object.keys(PLAYERS).forEach(function(k){if(PLAYERS[k]&&PLAYERS[k].name===name)id=k;});return id;}
 function lobbyTeam(name){var p=playerByName(name);return (p&&p.team)||("Team "+name);}
 /* ---- giocatori registrati e storico ---- */
+var PICKSEL=null;
 var DEFPLAYERS=["Luigi","Riccardo","Mirko","Simone","Luca","Fabio"],REG={},HIST={},CARDV=null,STATSV=false;
 function knownPlayers(){
  var seen={},out=[];function add(n){n=String(n||"").trim();if(!n)return;var k=nameKey(n);if(seen[k])return;seen[k]=1;out.push(n);}
@@ -123,6 +124,36 @@ function playerStats(name){
  histList().forEach(function(h){h.players.forEach(function(p){if(nameKey(p.name)!==k)return;st.t++;st.pts+=p.p||0;if(p.pos===1)st.w++;if(p.pos<=3)st.pod++;st.races+=(h.races||[]).length;st.rw+=p.rw||0;if(!st.last||h.date>st.last)st.last=h.date;});});
  st.wr=st.t?Math.round(st.w/st.t*100):null;st.avg=st.t?Math.round(st.pts/st.t*10)/10:null;st.rwr=st.races?Math.round(st.rw/st.races*100):null;return st;
 }
+var ELOC=null,ELOH=null,ELOTIP="";
+function eloNow(){if(ELOH!==HIST||!ELOC){ELOH=HIST;ELOC=Core.elo(histList());}return ELOC;}
+function eloOf(name){var x=eloNow().ratings[nameKey(name)];return x?x.r:Core.ELO.start;}
+function eloTxt(d){return (d>0?'+':(d<0?'−':'±'))+Math.abs(d);}
+function eloInfo(tid,name){var m=eloNow().per[tid];return m?m[nameKey(name)]:null;}
+var ECOL=["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#008300","#6250d6","#e34948"];
+function eloChart(){
+ var E=eloNow(),L=E.list;if(!L.length)return '';
+ var order=knownPlayers().filter(function(n){return E.series[nameKey(n)];}).slice(0,8);
+ var vw=(window.innerWidth||800),W=Math.max(320,Math.min(820,vw-(vw<700?70:120))),H=vw<700?220:260,ml=40,mr=16+7.2*Math.max.apply(null,[6].concat(knownPlayers().filter(function(n){return E.series[nameKey(n)];}).slice(0,8).map(function(n){return n.length+5;}))),mt=14,mb=28,nT=L.length;
+ var all=[Core.ELO.start];order.forEach(function(n){E.series[nameKey(n)].forEach(function(p){all.push(p.r);});});
+ var lo=Math.min.apply(null,all),hi=Math.max.apply(null,all);var st=hi-lo>120?50:25;lo=Math.floor((lo-5)/st)*st;hi=Math.ceil((hi+5)/st)*st;if(hi===lo)hi=lo+st;
+ function X(t){return ml+(nT?(t+1)/nT:0)*(W-ml-mr);}function Y(r){return mt+(hi-r)/(hi-lo)*(H-mt-mb);}
+ var g='<svg class="elochart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Andamento dell\'Elo per giocatore">';
+ for(var v=lo;v<=hi;v+=st)g+='<line x1="'+ml+'" x2="'+(W-mr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="'+(v===Core.ELO.start?'#8f8ca8':'#e3e3ee')+'" stroke-width="1"'+(v===Core.ELO.start?' stroke-dasharray="4 4"':'')+'/><text x="'+(ml-8)+'" y="'+(Y(v)+4)+'" text-anchor="end" class="ax">'+v+'</text>';
+ g+='<text x="'+X(-1)+'" y="'+(H-8)+'" text-anchor="middle" class="ax">inizio</text>';
+ var lastLab="",every=Math.max(1,Math.ceil(nT/Math.max(2,Math.floor((W-ml-mr)/56))));L.forEach(function(h,t){var lb=fmtShort(h.date);if(lb===lastLab||(t%every!==0&&t!==nT-1))return;lastLab=lb;if(true)g+='<text x="'+X(t)+'" y="'+(H-8)+'" text-anchor="middle" class="ax">'+esc(fmtShort(h.date))+'</text>';});
+ var ends=[];
+ order.forEach(function(n,ci){var k=nameKey(n),ser=E.series[k],c=ECOL[ci];
+  var pts=[[X(-1),Y(Core.ELO.start)]].concat(ser.map(function(p){return [X(p.t),Y(p.r)];}));
+  g+='<polyline fill="none" stroke="'+c+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="'+pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'"/>';
+  ser.forEach(function(p){var tip=n+' · '+fmtDate(p.date)+' · '+p.r+' ('+eloTxt(p.d)+')';g+='<circle cx="'+X(p.t)+'" cy="'+Y(p.r)+'" r="4.5" fill="'+c+'" stroke="#fff" stroke-width="2"/><circle cx="'+X(p.t)+'" cy="'+Y(p.r)+'" r="13" fill="transparent" data-act="elotip" data-n="'+esc(tip)+'"><title>'+esc(tip)+'</title></circle>';});
+  var lp=ser[ser.length-1];ends.push({y:Y(lp.r),n:n,r:lp.r,c:c,x:X(lp.t)});});
+ ends.sort(function(a,b){return a.y-b.y;});for(var i=1;i<ends.length;i++)if(ends[i].y-ends[i-1].y<14)ends[i].y=ends[i-1].y+14;
+ ends.forEach(function(e){g+='<text x="'+(W-mr+8)+'" y="'+(e.y+4)+'" class="lab">'+esc(e.n)+' '+e.r+'</text><line x1="'+(e.x+6)+'" x2="'+(W-mr+4)+'" y1="'+e.y+'" y2="'+e.y+'" stroke="'+e.c+'" stroke-width="1" opacity=".5"/>';});
+ g+='</svg>';
+ var leg='<div class="row" style="gap:6px 12px;margin:6px 0 4px">'+order.map(function(n,ci){return '<span class="eleg"><i style="background:'+ECOL[ci]+'"></i>'+esc(n)+'</span>';}).join("")+'</div>';
+ return '<div class="st"><div class="lbl">Andamento dell\'Elo</div>'+leg+'<div class="chartwrap">'+g+'</div><p class="mut" style="margin:4px 0 0;min-height:1.4em" aria-live="polite">'+(ELOTIP?esc(ELOTIP):'Tocca un punto per i dettagli. Si parte tutti da '+Core.ELO.start+'.')+'</p></div>';
+}
+function fmtShort(t){try{return new Date(t).toLocaleDateString("it-IT",{day:"numeric",month:"short"});}catch(e){return "";}}
 function avgTier(cards){var v=(cards||[]).map(function(c){return TRANK[tierOf(c)||"D"]||1;});if(!v.length)return null;var a=v.reduce(function(x,y){return x+y;},0)/v.length;return {v:Math.round(a*10)/10,l:TLIST[Math.max(0,Math.min(4,Math.round(a)-1))]};}
 function wrText(st){return st.t?st.wr+'% ('+st.w+' su '+st.t+')':'primo torneo';}
 function buildHistory(o){
@@ -176,6 +207,7 @@ function makeLocalBackend(){
   saveHistory:function(id,obj){var m=get("global/history")||{};m[id]=obj;put("global/history",m);return Promise.resolve();},
   removeHistory:function(id){var m=get("global/history")||{};delete m[id];put("global/history",m);return Promise.resolve();},
   watchReg:function(cb){return watch("global/players",function(v){cb(v||{});});},
+  setElo:function(m){put("global/elo",m);return Promise.resolve();},
   register:function(name){var m=get("global/players")||{};var k=nameKey(name);if(!m[k]){m[k]={name:name,t:Date.now()};put("global/players",m);}return Promise.resolve();},
   setImage:function(key,data){var m=get("global/images")||{};if(data)m[key]=data;else delete m[key];put("global/images",m);return Promise.resolve();},
   watchConn:function(cb){cb(true);return function(){};}
@@ -208,6 +240,7 @@ function makeFirebaseBackend(cfg){
   saveHistory:function(id,obj){return r("global/history/"+id).set(obj);},
   removeHistory:function(id){return r("global/history/"+id).remove();},
   watchReg:function(cb){return on(r("global/players"),function(v){cb(v||{});});},
+  setElo:function(m){return r("global/elo").set(m);},
   register:function(name){var ref=r("global/players/"+nameKey(name));return ref.transaction(function(v){return v||{name:name,t:Date.now()};});},
   setImage:function(key,data){return data?r("global/images/"+key).set(data):r("global/images/"+key).remove();},
   watchConn:function(cb){var ref=db.ref(".info/connected");var h=ref.on("value",function(s){cb(!!s.val());});return function(){ref.off("value",h);};}
@@ -304,7 +337,7 @@ function startBanner(i){return '<div class="st startban"><span class="lbl">Chi p
 function rosterBox(i,mine){
  var h=S.hands[i]||[],st=playerStats(S.names[i]),av=avgTier(h);
  return '<div class="st rosterbox"><div class="row">'+dot(i)+'<div class="grow" style="min-width:0"><div class="t" style="font-size:22px;line-height:1.05">'+esc(teamOf(i))+'</div><div class="mut">'+esc(S.names[i])+'</div></div>'+(av?'<span class="tierbig" style="background:'+(TC[av.l]||'#e9e9f2')+'" title="Livello medio della squadra">'+av.l+'<small>'+String(av.v).replace(".",",")+'</small></span>':'')+'</div>'+
-  '<div class="row" style="gap:8px;margin:10px 0 8px"><span class="pill">Vittorie tornei: '+esc(wrText(st))+'</span>'+(st.rwr!==null?'<span class="pill">Gare vinte: '+st.rwr+'%</span>':'')+'</div>'+
+  '<div class="row" style="gap:8px;margin:10px 0 8px"><span class="pill" style="background:var(--yel)">Elo '+eloOf(S.names[i])+'</span><span class="pill">Vittorie tornei: '+esc(wrText(st))+'</span>'+(st.rwr!==null?'<span class="pill">Gare vinte: '+st.rwr+'%</span>':'')+'</div>'+
   '<div class="row" style="gap:6px">'+h.map(cardPill).join("")+'</div></div>';
 }
 function tierChanges(r){return r.tchg&&r.tchg.length?'<div class="st msg" style="margin-top:12px"><div class="lbl">Livelli cambiati</div><div class="row" style="margin-top:6px">'+r.tchg.map(function(c){return '<span class="pill" style="background:'+(TC[c.to]||'#e9e9f2')+'">'+esc(c.n)+' '+c.from+' → '+c.to+(TRANK[c.to]>TRANK[c.from]?' ▲':' ▼')+'</span>';}).join("")+'</div></div>':'';}
@@ -425,6 +458,7 @@ function vEnd(){
  var ord=[1,0,2],hgt=[150,200,115],col=["#d9dee9","#ffc83d","#e8a46b"];
  ord.forEach(function(k,j){var x=rows[k];if(!x)return;h+='<div class="pod">'+dot(x.i)+'<div class="t" style="font-size:24px">'+esc(teamOf(x.i))+'</div><div class="mut">'+esc(x.n)+' · '+x.p+' punti</div><div class="blk" style="height:'+hgt[j]+'px;background:'+col[j]+'">'+(k+1)+'</div></div>';});
  h+='</div></div>';
+ if(S.tid&&eloNow().per[S.tid])h+='<div class="st" style="margin-top:18px"><div class="lbl">Elo dopo questo torneo</div><div class="row" style="gap:8px;margin-top:8px">'+rows.map(function(x){var e=eloInfo(S.tid,x.n);return e?'<span class="pill">'+esc(x.n)+' '+e.a+' <span class="elod'+(e.d>0?' up':(e.d<0?' dn':''))+'">'+eloTxt(e.d)+'</span></span>':'';}).join("")+'</div></div>';
  var fl=once("finalcards");
  h+='<h2 class="t" style="font-size:28px;margin:22px 0 12px">Le carte rimaste (bonus finale)</h2><div class="grid">'+S.names.map(function(nm,i){var c=(S.hands[i]||[])[0];if(!c)return '';return aCard(c,{flip:fl,delay:i*250,btn:'<div class="row">'+dot(i)+'<b class="grow">'+esc(teamOf(i))+'</b><span class="mini-b">+'+tierBonus(c)+'</span></div>'});}).join("")+'</div>';
  var aw=awards();
@@ -440,7 +474,7 @@ function vPlayer(){
  var h='<div class="ph stack">'+modeBanner()+'<div class="me">'+dot(i)+'<div class="grow"><div class="t" style="font-size:26px;line-height:1">'+esc(teamOf(i))+'</div><div class="mut">'+esc(S.names[i])+' · '+pts0+' punti · '+pos+'° · 💨 '+fartsOf(S,i)+' · '+esc(GAME.code)+'</div></div><button type="button" class="btn sm alt" data-act="leave">Esci</button></div>';
  if(msg)h+='<div class="st msg" role="status" style="font-weight:800">'+esc(msg)+'</div>';
  if(!SYNC&&!BE.local)h+='<div class="banner">Connessione persa: riprovo…</div>';
- if(finished()){var w=rows[0],c=(S.hands[i]||[])[0];return h+'<div class="st turn"><h2 class="t" style="font-size:32px">Torneo finito!</h2><p style="margin:4px 0 0;font-weight:800">Vince '+esc(teamOf(w.i))+' con '+w.p+' punti. Tu sei '+pos+'°.</p></div>'+(c?'<div class="lbl">La tua carta bonus: +'+tierBonus(c)+'</div>'+aCard(c):'')+'<p class="mut">Guarda il podio sul tablet.</p>'+statsBtn()+'</div>';}
+ if(finished()){var w=rows[0],c=(S.hands[i]||[])[0];return h+'<div class="st turn"><h2 class="t" style="font-size:32px">Torneo finito!</h2><p style="margin:4px 0 0;font-weight:800">Vince '+esc(teamOf(w.i))+' con '+w.p+' punti. Tu sei '+pos+'°.</p>'+(function(){var e=S.tid&&eloInfo(S.tid,S.names[i]);return e?'<p style="margin:6px 0 0;font-weight:900">Elo '+e.a+' ('+eloTxt(e.d)+')</p>':'';})()+'</div>'+(c?'<div class="lbl">La tua carta bonus: +'+tierBonus(c)+'</div>'+aCard(c):'')+'<p class="mut">Guarda il podio sul tablet.</p>'+statsBtn()+'</div>';}
  if(S.stage==="pole"){
   var you=[];if(S.pole.start===i)you.push('parti tu nella gara 1');if(S.pole.reveal===i)you.push('scegli per primo il racer della gara 1');if(S.pole.draft===i)you.push('cominci tu il draft');
   return h+infoBox()+(you.length?'<div class="st turn"><h2 class="t" style="font-size:28px">Pole position!</h2><p style="margin:4px 0 0;font-weight:800">Tocca a te: '+you.join(', ')+'.</p></div>':'')+'</div>';
@@ -511,7 +545,9 @@ function vHome(){
  if(msg)h+='<div class="st msg" role="status" style="font-weight:800">'+esc(msg)+'</div>';
  h+='<form class="st stack" id="joinf" autocomplete="off"><h2 class="t" style="font-size:30px">Entra in una partita</h2>'+
   '<div><label for="f_code">Codice partita</label><input id="f_code" class="codein" maxlength="4" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" value="'+esc(pre)+'" placeholder="ABCD" required></div>'+
-  '<div><label for="f_name">Chi sei?</label><div class="row namechips" style="gap:8px;margin-bottom:8px">'+knownPlayers().map(function(n){return '<button type="button" class="chip'+(nameKey(n)===nameKey(last)?' on':'')+'" data-act="pickname" data-n="'+esc(n)+'">'+esc(n)+'</button>';}).join("")+'</div><input id="f_name" maxlength="16" autocomplete="nickname" value="'+esc(last)+'" placeholder="Oppure scrivi un nome nuovo"  required><p class="mut" style="margin:4px 0 0;font-size:13px">Un nome nuovo viene registrato e da lì in poi tiene le sue statistiche.</p></div>'+
+  (function(){var kp=knownPlayers(),sel=kp.filter(function(n){return nameKey(n)===nameKey(last);})[0]||(last?"__new":"");if(PICKSEL!==null)sel=PICKSEL;
+   return '<div><label for="f_pick">Chi sei?</label><select id="f_pick" required><option value=""'+(sel===""?' selected':'')+' disabled>Scegli il tuo nome…</option>'+kp.map(function(n){return '<option value="'+esc(n)+'"'+(sel===n?' selected':'')+'>'+esc(n)+'</option>';}).join("")+'<option value="__new"'+(sel==="__new"?' selected':'')+'>➕ Sono un giocatore nuovo</option></select>'+
+   '<div id="newname"'+(sel==="__new"?'':' hidden')+' style="margin-top:8px"><label for="f_name">Il tuo nome</label><input id="f_name" maxlength="16" autocomplete="nickname" value="'+esc(sel==="__new"?last:"")+'" placeholder="Es. Gianni"><p class="mut" style="margin:4px 0 0;font-size:13px">Viene registrato: da lì in poi ha il suo Elo e le sue statistiche.</p></div></div>';})()+
   '<div><label for="f_team">Nome del tuo team</label><input id="f_team" maxlength="24" value="'+esc(lastTeam)+'" placeholder="Es. I Fulmini di Cà Granda"></div>'+
   '<button type="submit" class="btn big acc"'+(BUSY?' disabled':'')+'>'+(BUSY?'Entro…':'Entra')+'</button></form>';
  h+=tutBtn()+statsBtn();
@@ -527,7 +563,7 @@ function vLobbyHost(){
  h+='<div class="st row" style="gap:28px;padding:22px"><div class="stack" style="gap:10px"><span class="lbl">Codice partita</span><span class="code">'+esc(GAME.code)+'</span><span class="mut">Aprite questo sito sul telefono e inserite il codice,<br>oppure inquadrate il QR.</span><span class="mut" style="word-break:break-all">'+esc(joinUrl())+'</span></div>'+(window.QRCode?'<div class="qr" id="qr" role="img" aria-label="QR code per entrare nella partita"></div>':'')+'</div>';
  h+='<div class="st stack"><div class="row"><h2 class="t grow" style="font-size:28px">Team ('+names.length+')</h2><span class="mut">Mettili nell\'ordine in cui siete seduti: serve per il senso orario.</span></div>';
  if(!names.length)h+='<p class="mut" style="margin:0">Ancora nessuno. Aspetto che entrino dal telefono…</p>';
- h+=names.map(function(n,i){return '<div class="pl">'+dotN(names,i)+'<span class="nm">'+(i+1)+'. '+esc(lobbyTeam(n))+' <small class="fc">'+esc(n)+'</small></span><button type="button" class="btn sm alt" data-act="seat" data-n="'+esc(n)+'" data-d="-1" aria-label="Sposta su '+esc(n)+'"'+(i===0?' disabled':'')+'>↑</button><button type="button" class="btn sm alt" data-act="seat" data-n="'+esc(n)+'" data-d="1" aria-label="Sposta giù '+esc(n)+'"'+(i===names.length-1?' disabled':'')+'>↓</button><button type="button" class="btn sm alt" data-act="kick" data-n="'+esc(n)+'" aria-label="Togli '+esc(n)+'">✕</button></div>';}).join("");
+ h+=names.map(function(n,i){return '<div class="pl">'+dotN(names,i)+'<span class="nm">'+(i+1)+'. '+esc(lobbyTeam(n))+' <small class="fc">'+esc(n)+' · Elo '+eloOf(n)+'</small></span><button type="button" class="btn sm alt" data-act="seat" data-n="'+esc(n)+'" data-d="-1" aria-label="Sposta su '+esc(n)+'"'+(i===0?' disabled':'')+'>↑</button><button type="button" class="btn sm alt" data-act="seat" data-n="'+esc(n)+'" data-d="1" aria-label="Sposta giù '+esc(n)+'"'+(i===names.length-1?' disabled':'')+'>↓</button><button type="button" class="btn sm alt" data-act="kick" data-n="'+esc(n)+'" aria-label="Togli '+esc(n)+'">✕</button></div>';}).join("");
  var enough=S.roster.length>=names.length*DRAFTS+DRAFTS;
  h+='<div class="row" style="margin-top:6px"><button type="button" class="btn big acc" data-act="start"'+(names.length<2||!enough?' disabled':'')+'>Inizia il torneo (4 gare): pole position!</button>'+(enough?'':'<span class="mut">Troppi giocatori per il numero di carte.</span>')+'</div></div>';
  h+='<p class="sync"><button type="button" class="btn sm alt" data-act="leave">Esci da questa partita</button></p>';
@@ -567,18 +603,19 @@ function vCardModal(){return '<div class="tut cardmodal" role="dialog" aria-moda
 function fmtDate(t){try{return new Date(t).toLocaleDateString("it-IT",{day:"numeric",month:"short",year:"numeric"});}catch(e){return "";}}
 function vStats(){
  var H=histList(),names=knownPlayers().filter(function(n){return playerStats(n).t>0;});
- var rows=names.map(playerStats).sort(function(a,b){return b.w-a.w||(b.wr||0)-(a.wr||0)||(b.avg||0)-(a.avg||0);});
+ var rows=names.map(function(n){var x=playerStats(n);x.elo=eloOf(n);return x;}).sort(function(a,b){return b.elo-a.elo||b.w-a.w||(b.avg||0)-(a.avg||0);});
  var h='<div class="tut" role="dialog" aria-modal="true" aria-labelledby="st_t"><div class="ph stack" style="max-width:900px">';
  h+='<div class="row tuthead"><span class="logo t" id="st_t">Storico</span><span class="grow"></span><button type="button" class="btn sm" data-act="statsclose">Chiudi</button></div>';
  if(!H.length){h+='<div class="st"><p style="margin:0;font-weight:800">Ancora nessun torneo nello storico.</p><p class="mut" style="margin:6px 0 0">Ogni torneo finito viene salvato qui da solo, con data, classifica, team e racer usati.</p></div>';return h+'</div></div>';}
- h+='<div class="st"><div class="lbl">Giocatori</div><div class="stbl" role="table"><div class="sr sh" role="row"><span>Giocatore</span><span>Tornei</span><span>Vinti</span><span>% vittorie</span><span>Podi</span><span>Punti medi</span><span>Gare vinte</span></div>'+
-  rows.map(function(x,q){return '<div class="sr" role="row"><span><b>'+(q+1)+'. '+esc(x.name)+'</b></span><span>'+x.t+'</span><span>'+x.w+'</span><span><b>'+x.wr+'%</b></span><span>'+x.pod+'</span><span>'+String(x.avg).replace(".",",")+'</span><span>'+x.rw+' su '+x.races+'</span></div>';}).join("")+'</div></div>';
+ h+=eloChart();
+ h+='<div class="st"><div class="lbl">Classifica Elo e statistiche</div><div class="stbl" role="table"><div class="sr sh" role="row"><span>Giocatore</span><span>Elo</span><span>Tornei</span><span>Vinti</span><span>% vittorie</span><span>Podi</span><span>Punti medi</span><span>Gare vinte</span></div>'+
+  rows.map(function(x,q){return '<div class="sr" role="row"><span><b>'+(q+1)+'. '+esc(x.name)+'</b></span><span><b class="elo">'+x.elo+'</b></span><span>'+x.t+'</span><span>'+x.w+'</span><span><b>'+x.wr+'%</b></span><span>'+x.pod+'</span><span>'+String(x.avg).replace(".",",")+'</span><span>'+x.rw+' su '+x.races+'</span></div>';}).join("")+'</div></div>';
  var rc={};H.forEach(function(t){(t.races||[]).forEach(function(R){if(R.c1){rc[R.c1]=rc[R.c1]||{w:0};rc[R.c1].w++;}});});
  var top=Object.keys(rc).sort(function(a,b){return rc[b].w-rc[a].w;}).slice(0,8);
  if(top.length)h+='<div class="st"><div class="lbl">Racer che hanno vinto più gare</div><div class="row" style="gap:8px;margin-top:8px">'+top.map(function(c){return '<button type="button" class="pill cardpill" data-act="card" data-n="'+esc(c)+'" style="background:'+(TC[tierOf(c)]||'#e9e9f2')+'">'+esc(c)+' · '+rc[c].w+'</button>';}).join("")+'</div></div>';
  h+='<h2 class="t" style="font-size:28px;margin:6px 0 0">Tornei ('+H.length+')</h2>';
  h+=H.map(function(t){return '<div class="st"><div class="row"><span class="pill">'+esc(fmtDate(t.date))+'</span><span class="mut">'+t.players.length+' giocatori'+(t.code?' · '+esc(t.code):'')+'</span></div>'+
-  '<div class="stack" style="gap:4px;margin-top:10px">'+t.players.map(function(p){return '<div class="row" style="gap:8px"><b style="width:28px">'+p.pos+'°</b><b>'+esc(p.name)+'</b><span class="mut grow">'+esc(p.team||'')+'</span><b>'+p.p+' pt</b></div>';}).join("")+'</div></div>';}).join("");
+  '<div class="stack" style="gap:4px;margin-top:10px">'+t.players.map(function(p){return '<div class="row" style="gap:8px"><b style="width:28px">'+p.pos+'°</b><b>'+esc(p.name)+'</b><span class="mut grow">'+esc(p.team||'')+'</span><b>'+p.p+' pt</b>'+(function(){var e=eloInfo(t.id,p.name);return e?'<span class="elod'+(e.d>0?' up':(e.d<0?' dn':''))+'">'+eloTxt(e.d)+'</span>':'';})()+'</div>';}).join("")+'</div></div>';}).join("");
  return h+'</div></div>';
 }
 /* ---------------- tutorial ---------------- */
@@ -597,7 +634,7 @@ function vTut(){
  h+=step(4,'Prima: chi parte','<p class="tp"><b>Gara 1</b>: parte il giocatore estratto a caso nella pole position (lo vedi già durante il draft).</p><p class="tp"><b>Gare 2–4</b>: <b>l\'ultimo in classifica decide chi parte</b>. Si decide <b>prima</b> di scegliere i racer, così tutti scelgono sapendolo.</p>','#fff');
  h+=step(5,'Poi: quale racer corre','<p class="tp"><b>Gara 1</b>: si sceglie in senso orario a partire dal giocatore estratto nella pole position.</p><p class="tp"><b>Gare 2–4</b>: sceglie per primo <b>chi ha più punti</b>, poi gli altri in ordine di punteggio. Parità: prima chi ha fatto <b>meno rutti e scoregge</b>, poi chi ha usato la carta di livello più alto nella gara precedente, poi il caso. Le scelte sono visibili a tutti. Tocca il nome di un racer per leggerne l\'abilità.</p><p class="tp">Si gioca in senso orario con le regole normali: la gara finisce quando due atleti tagliano il traguardo.</p>','#d2f6e3');
  h+=step(6,'I punti','<div class="row" style="gap:8px;margin:0 0 10px">'+P.map(function(p,k){return '<span class="pill">G'+(k+1)+': 1° '+p[0]+' · 2° '+p[1]+'</span>';}).join("")+'</div><p class="tp"><span class="mini-b">+1</span> <b>Bronzo</b>: ogni casella stella e ogni potere che dà punti vale 1 punto. Lo segni tu con <b>+1 punto</b> sul telefono.</p><p class="tp"><b>I livelli cambiano</b>: a fine gara la carta che ha <b>vinto sale di un livello</b> e quella <b>arrivata ultima scende di uno</b> (pari all\'ultimo posto: sorteggio). I cambi restano per sempre, anche nelle partite successive.</p>','#ffe1d8');
- h+=step(7,'Fine e bonus','<p class="tp">Dopo la gara 4 ti resta 1 carta: vale punti in più secondo il suo livello.</p><div class="row" style="gap:8px;margin:6px 0 10px"><span class="pill" style="background:#ff7a59">S +2</span><span class="pill" style="background:#ffe14d">A +2</span><span class="pill" style="background:#7fb2ff">B +1</span><span class="pill" style="background:#6fe0a3">C +1</span><span class="pill" style="background:#ff9fd2">D 0</span></div><p class="tp">Vince chi ha più punti. Parità: <b>meno rutti e scoregge</b>, poi più vittorie, poi più bronzi. Il risultato finisce nello <b>storico</b>, con le statistiche di ogni giocatore.</p>','#efe2ff');
+ h+=step(7,'Fine e bonus','<p class="tp">Dopo la gara 4 ti resta 1 carta: vale punti in più secondo il suo livello.</p><div class="row" style="gap:8px;margin:6px 0 10px"><span class="pill" style="background:#ff7a59">S +2</span><span class="pill" style="background:#ffe14d">A +2</span><span class="pill" style="background:#7fb2ff">B +1</span><span class="pill" style="background:#6fe0a3">C +1</span><span class="pill" style="background:#ff9fd2">D 0</span></div><p class="tp">Vince chi ha più punti. Parità: <b>meno rutti e scoregge</b>, poi più vittorie, poi più bronzi. Il risultato finisce nello <b>storico</b>, con le statistiche di ogni giocatore.</p><p class="tp"><b>Elo</b>: si parte tutti da 1500. A fine torneo ogni coppia di giocatori conta come uno scontro: chi ha fatto più punti vince, pari punti è pareggio. Battere chi ha l\'Elo più alto rende di più (K 24, doppio nei primi 3 tornei).</p>','#efe2ff');
  h+=step(8,'I tasti del telefono','<p class="tp"><b>Tocca a te</b>: il telefono suona e vibra quando devi scegliere.</p><p class="tp"><b>+1 punto</b>: per stelle e poteri, durante la gara. Sbagliato? C\'è il −1.</p><p class="tp"><b>Rutti e scoregge</b>: in basso, sempre disponibile. Lo sentono tutti, anche il tablet. Attenzione: <b>ogni pressione viene contata</b> e negli spareggi vince chi ne ha fatti di meno.</p>');
  h+='<button type="button" class="btn big acc" data-act="tutclose" style="align-self:center">Ho capito, si gioca!</button>';
  return h+'</div></div>';
@@ -610,7 +647,7 @@ function typing(){var a=document.activeElement;return a&&/INPUT|TEXTAREA|SELECT/
 function render(){
  var a=document.getElementById("app");ME=me();
  var act=document.activeElement,id=act&&act.id,pos=act&&act.selectionStart,vals={};
- document.querySelectorAll("#app input,#app textarea").forEach(function(e){if(e.id)vals[e.id]=e.value;});
+ document.querySelectorAll("#app input,#app textarea").forEach(function(e){if(e.id)vals[e.id]=e.value;});var pk0=document.getElementById("f_pick");if(pk0)PICKSEL=pk0.value;
  var tutEl=document.querySelector(".tut:not(.cardmodal)"),tutTop=tutEl?tutEl.scrollTop:0;
  var m=flipCapture();pendingSeen=[];var html;
  if(!GAME)html=vHome();
@@ -697,7 +734,7 @@ function leave(){disconnect();GAME=null;idSet("ma_game",null);msg="";TAB="live";
 
 /* ---------------- actions ---------------- */
 document.getElementById("app").addEventListener("submit",function(ev){
- if(ev.target.id==="joinf"){ev.preventDefault();var tm=document.getElementById("f_team");joinGame(document.getElementById("f_code").value,document.getElementById("f_name").value,tm?tm.value:"");}
+ if(ev.target.id==="joinf"){ev.preventDefault();var tm=document.getElementById("f_team"),pk=document.getElementById("f_pick").value,nm0=pk==="__new"?document.getElementById("f_name").value:pk;if(!pk){msg="Scegli il tuo nome dall'elenco.";render();return;}joinGame(document.getElementById("f_code").value,nm0,tm?tm.value:"");}
  if(ev.target.id==="teamf"){ev.preventDefault();var tv=cleanTeam(document.getElementById("f_team2").value);idSet("ma_team",tv);BE.join(GAME.code,GAME.name,tv).then(function(){msg=tv?"Team salvato.":"";var a=document.activeElement;if(a&&a.blur)a.blur();render();});}
 });
 function resizeImage(file){
@@ -709,6 +746,7 @@ function resizeImage(file){
 }
 document.getElementById("app").addEventListener("change",function(ev){
  var t=ev.target;
+ if(t.id==="f_pick"){PICKSEL=t.value;var nn=document.getElementById("newname");if(nn){nn.hidden=t.value!=="__new";if(t.value==="__new"){var fi=document.getElementById("f_name");fi&&fi.focus();}}return;}
  if(t.id==="f_snd"){SND=t.value;lsSet("ma_snd",SND);funny();return;}
  if(t.getAttribute&&t.getAttribute("data-bulk")&&t.files&&t.files.length){bulkImages(Array.prototype.slice.call(t.files));return;}
  var nm=t.getAttribute&&t.getAttribute("data-img");
@@ -757,6 +795,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "cardclose":if(ev.target.closest(".cm-in")&&!ev.target.closest("button"))return;CARDV=null;render();return;
  case "stats":STATSV=true;render();try{var sx=document.querySelector(".tut");if(sx)sx.scrollTop=0;}catch(e){}return;
  case "statsclose":STATSV=false;render();return;
+ case "elotip":ELOTIP=NM||"";render();return;
  case "pickname":var fn=document.getElementById("f_name");if(fn){fn.value=NM;}document.querySelectorAll(".namechips .chip").forEach(function(c){c.classList.toggle("on",c.getAttribute("data-n")===NM);});return;
  case "delimg":BE.setImage(tkey(NM),null).then(function(){msg="Foto di "+NM+" tolta.";render();});return;
  case "tiemode":TIEMODE=!TIEMODE;LASTSEL=[];render();return;
@@ -768,7 +807,7 @@ document.getElementById("app").addEventListener("click",function(ev){
   var sel=LASTSEL.slice();if(!sel.length)return;
   commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;var c=sel.filter(function(p){return p!==r.w1&&p!==r.w2;});if(!c.length)return false;r.last=c[Math.floor(Math.random()*c.length)];r.lastDraw=c;}).then(function(){LASTSEL=[];TIEMODE=false;render();});return;
  case "reopen":
-  var RV=null,RVH=null;commit(function(o){RV=null;RVH=null;var r=curOf(o);if(!r||!r.done)return false;RV=(r.tchg||[]).slice();RV.slice().reverse().forEach(function(c){setTier(o,c.n,c.from);});r.tchg=null;r.done=false;if(o.stage==="end"){o.stage="races";RVH=o.tid||null;}}).then(function(ok){if(ok&&RV)RV.forEach(function(c){BE.shiftTier(tkey(c.n),c.to,TRANK[c.to]>TRANK[c.from]?-1:1);});if(ok&&RVH)BE.removeHistory(RVH).catch(function(){});});return;
+  var RV=null,RVH=null;commit(function(o){RV=null;RVH=null;var r=curOf(o);if(!r||!r.done)return false;RV=(r.tchg||[]).slice();RV.slice().reverse().forEach(function(c){setTier(o,c.n,c.from);});r.tchg=null;r.done=false;if(o.stage==="end"){o.stage="races";RVH=o.tid||null;}}).then(function(ok){if(ok&&RV)RV.forEach(function(c){BE.shiftTier(tkey(c.n),c.to,TRANK[c.to]>TRANK[c.from]?-1:1);});if(ok&&RVH){BE.removeHistory(RVH).catch(function(){});BE.setElo(Core.elo(histList().filter(function(x){return x.id!==RVH;})).ratings).catch(function(){});}});return;
  case "showhand":SHOWHAND=SHOWHAND===I?null:I;render();return;
  case "plus":case "minus":
   var r1=cur();if(!r1||r1.done||typeof ME!=="number")return;var ph1=phase(r1);if(ph1!=="race"&&ph1!=="result")return;var key=r1.id+"_"+ME;
@@ -823,7 +862,8 @@ document.getElementById("app").addEventListener("click",function(ev){
   var CH=null,HX=null;commit(function(o){CH=null;var r=curOf(o);if(!r||r.w2===null||r.done)return false;var others=o.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});if(others.length&&(r.last===null||r.last===undefined))return false;
    r.tchg=[];var up=r.picks[r.w1],f1=tierIn(o,up),t1=shifted(f1,1);if(t1!==f1){setTier(o,up,t1);r.tchg.push({n:up,from:f1,to:t1});}
    if(r.last!==null&&r.last!==undefined){var dn=r.picks[r.last],f2=tierIn(o,dn),t2=shifted(f2,-1);if(t2!==f2){setTier(o,dn,t2);r.tchg.push({n:dn,from:f2,to:t2});}}
-   r.done=true;CH=r.tchg.slice();TIEMODE=false;HX=null;if(o.races.length===RACES){o.stage="end";if(!o.tid)o.tid=Date.now().toString(36);HX={id:o.tid,obj:buildHistory(o)};}}).then(function(ok){if(ok&&CH)CH.forEach(function(c){BE.shiftTier(tkey(c.n),c.from,TRANK[c.to]>TRANK[c.from]?1:-1);});if(ok&&HX)BE.saveHistory(HX.id,HX.obj).then(function(){msg="Torneo salvato nello storico.";render();}).catch(function(e){msg="Storico non salvato: "+(/permission|denied/i.test(String(e&&e.message))?"aggiorna le regole di Firebase (pagina Manutenzione).":((e&&e.message)||e));render();});});LASTSEL=[];return;
+   r.done=true;CH=r.tchg.slice();TIEMODE=false;HX=null;if(o.races.length===RACES){o.stage="end";if(!o.tid)o.tid=Date.now().toString(36);HX={id:o.tid,obj:buildHistory(o)};}}).then(function(ok){if(ok&&CH)CH.forEach(function(c){BE.shiftTier(tkey(c.n),c.from,TRANK[c.to]>TRANK[c.from]?1:-1);});if(ok&&HX){var hl=histList().filter(function(x){return x.id!==HX.id;});HX.obj.id=HX.id;hl.push(HX.obj);var ee=Core.eloAnnotate(hl);delete HX.obj.id;BE.setElo(ee.ratings).catch(function(){});}
+   if(ok&&HX)BE.saveHistory(HX.id,HX.obj).then(function(){msg="Torneo salvato nello storico.";render();}).catch(function(e){msg="Storico non salvato: "+(/permission|denied/i.test(String(e&&e.message))?"aggiorna le regole di Firebase (pagina Manutenzione).":((e&&e.message)||e));render();});});LASTSEL=[];return;
  case "abort":
   if(CONFIRM!=="abort"){askConfirm("abort");return;}CONFIRM=null;
   commit(function(o){var r=curOf(o);if(!r||r.done)return false;o.races.pop();Object.keys(r.picks).forEach(function(p){o.hands[p].push(r.picks[p]);});});return;
