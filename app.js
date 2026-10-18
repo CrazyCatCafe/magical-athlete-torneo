@@ -121,7 +121,7 @@ function knownPlayers(){
 function histList(){return Object.keys(HIST).map(function(id){var h=HIST[id];if(h)h.id=id;return h;}).filter(function(h){return h&&h.players&&h.players.length;}).sort(function(a,b){return (b.date||0)-(a.date||0);});}
 function playerStats(name){
  var k=nameKey(name),st={name:name,t:0,w:0,pod:0,pts:0,races:0,rw:0,last:null};
- histList().forEach(function(h){h.players.forEach(function(p){if(nameKey(p.name)!==k)return;st.t++;st.pts+=p.p||0;if(p.pos===1)st.w++;if(p.pos<=3)st.pod++;st.races+=(h.races||[]).length;st.rw+=p.rw||0;if(!st.last||h.date>st.last)st.last=h.date;});});
+ histList().forEach(function(h){h.players.forEach(function(p){if(nameKey(p.name)!==k)return;st.t++;st.pts+=p.p||0;if(st.best===undefined||(p.p||0)>st.best)st.best=p.p||0;if(p.pos===1)st.w++;if(p.pos<=3)st.pod++;st.races+=(h.races||[]).length;st.rw+=p.rw||0;if(!st.last||h.date>st.last)st.last=h.date;});});
  st.wr=st.t?Math.round(st.w/st.t*100):null;st.avg=st.t?Math.round(st.pts/st.t*10)/10:null;st.rwr=st.races?Math.round(st.rw/st.races*100):null;return st;
 }
 var ELOC=null,ELOH=null,ELOTIP="";
@@ -608,8 +608,8 @@ function vStats(){
  h+='<div class="row tuthead"><span class="logo t" id="st_t">Storico</span><span class="grow"></span><button type="button" class="btn sm" data-act="statsclose">Chiudi</button></div>';
  if(!H.length){h+='<div class="st"><p style="margin:0;font-weight:800">Ancora nessun torneo nello storico.</p><p class="mut" style="margin:6px 0 0">Ogni torneo finito viene salvato qui da solo, con data, classifica, team e racer usati.</p></div>';return h+'</div></div>';}
  h+=eloChart();
- h+='<div class="st"><div class="lbl">Classifica Elo e statistiche</div><div class="stbl" role="table"><div class="sr sh" role="row"><span>Giocatore</span><span>Elo</span><span>Tornei</span><span>Vinti</span><span>% vittorie</span><span>Podi</span><span>Punti medi</span><span>Gare vinte</span></div>'+
-  rows.map(function(x,q){return '<div class="sr" role="row"><span><b>'+(q+1)+'. '+esc(x.name)+'</b></span><span><b class="elo">'+x.elo+'</b></span><span>'+x.t+'</span><span>'+x.w+'</span><span><b>'+x.wr+'%</b></span><span>'+x.pod+'</span><span>'+String(x.avg).replace(".",",")+'</span><span>'+x.rw+' su '+x.races+'</span></div>';}).join("")+'</div></div>';
+ h+='<div class="st"><div class="lbl">Classifica Elo e statistiche</div><div class="stbl" role="table"><div class="sr sh" role="row"><span>Giocatore</span><span>Elo</span><span>Tornei</span><span>Vinti</span><span>% vittorie</span><span>Podi</span><span>Punti medi</span><span>Record</span><span>Punti tot.</span><span>Gare vinte</span></div>'+
+  rows.map(function(x,q){return '<div class="sr" role="row"><span><b>'+(q+1)+'. '+esc(x.name)+'</b></span><span><b class="elo">'+x.elo+'</b></span><span>'+x.t+'</span><span>'+x.w+'</span><span><b>'+x.wr+'%</b></span><span>'+x.pod+'</span><span>'+String(x.avg).replace(".",",")+'</span><span>'+(x.best||0)+'</span><span>'+x.pts+'</span><span>'+(x.races?x.rw+' su '+x.races:'—')+'</span></div>';}).join("")+'</div></div>';
  var rc={};H.forEach(function(t){(t.races||[]).forEach(function(R){if(R.c1){rc[R.c1]=rc[R.c1]||{w:0};rc[R.c1].w++;}});});
  var top=Object.keys(rc).sort(function(a,b){return rc[b].w-rc[a].w;}).slice(0,8);
  if(top.length)h+='<div class="st"><div class="lbl">Racer che hanno vinto più gare</div><div class="row" style="gap:8px;margin-top:8px">'+top.map(function(c){return '<button type="button" class="pill cardpill" data-act="card" data-n="'+esc(c)+'" style="background:'+(TC[tierOf(c)]||'#e9e9f2')+'">'+esc(c)+' · '+rc[c].w+'</button>';}).join("")+'</div></div>';
