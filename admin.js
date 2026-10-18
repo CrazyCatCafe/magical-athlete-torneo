@@ -1,5 +1,6 @@
 /* Magical Outlet — pagina di manutenzione (Firebase): controlli, regole da copiare, pulizia partite, foto e livelli */
-var HIST=null,REGP=null;
+var HIST=null,REGP=null,EDIT=null,ELODIRTY=false,RAW={};
+var DEFPLAYERS=["Luigi","Riccardo","Mirko","Simone","Luca","Fabio"];
 var CFG=window.FIREBASE_CONFIG,DB=null,CHECKS=[],RULES="",GAMES=null,IMGS=null,TIERS=null,MSG="",CONF=null,BUSYX=false,CONNECTED=null;
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function tkey(n){return String(n).replace(/[^A-Za-z0-9]/g,"_");}
@@ -40,8 +41,9 @@ async function runChecks(){
 }
 async function loadRules(){try{var r=await fetch("database.rules.json?t="+Date.now());RULES=await r.text();}catch(e){RULES="Non riesco a leggere database.rules.json: "+errTxt(e);}draw();}
 async function loadGames(){
- try{var s=await wt(DB.ref("games").get(),12000);var v=s.val()||{};GAMES=Object.keys(v).map(function(c){var g=v[c]||{},st=null;try{st=JSON.parse(g.state);}catch(e){}var pl=g.players?Object.keys(g.players).length:0;
-  return {code:c,created:g.created||0,stage:st?st.stage:"?",players:pl,races:st&&st.races?st.races.length:0,started:st&&st.started};}).sort(function(a,b){return (b.created||0)-(a.created||0);});}
+ try{var s=await wt(DB.ref("games").get(),12000);var v=s.val()||{};RAW={};GAMES=Object.keys(v).map(function(c){var g=v[c]||{},st=null;try{st=JSON.parse(g.state);}catch(e){}RAW[c]={g:g,st:st};var pl=g.players?Object.keys(g.players).length:0;var np=st&&st.started&&st.names?st.names.length:pl;
+  var done=st&&st.races?st.races.filter(function(r){return r&&r.done;}).length:0;
+  return {code:c,created:g.created||0,stage:st?st.stage:"?",players:np,races:done,started:st&&st.started,ended:st&&st.stage==="end"};}).sort(function(a,b){return (b.created||0)-(a.created||0);});}
  catch(e){GAMES=false;}
  draw();
 }
@@ -52,6 +54,34 @@ async function loadGlobal(){
  try{var d=await wt(DB.ref("global/players").get(),12000);REGP=d.val()||{};}catch(e){REGP=false;}
  draw();
 }
+function oldOk(g){return (!g.created||(Date.now()-g.created)>7*86400000)&&(!g.players||histByCode(g.code));}
+function nk(n){return Core.nameKey(n);}
+function knownNames(){var seen={},out=[];function add(n){n=String(n||"").trim();if(!n||seen[nk(n)])return;seen[nk(n)]=1;out.push(n);}DEFPLAYERS.forEach(add);Object.keys(REGP||{}).forEach(function(k){add((REGP[k]||{}).name);});Object.keys(HIST||{}).forEach(function(k){((HIST[k]||{}).players||[]).forEach(function(p){add(p.name);});});return out;}
+function histByCode(code){var id=null;Object.keys(HIST||{}).forEach(function(k){if(HIST[k]&&HIST[k].code===code)id=k;});return id;}
+function tierBonusRaw(st,card){var t="D";(st.roster||[]).forEach(function(x){if(x.n===card)t=x.t||"D";});return (t==="S"||t==="A")?2:(t==="D"?0:1);}
+function suggestFromGame(code){
+ var R=RAW[code]||{},g=R.g||{},st=R.st,rows=[];
+ if(st&&st.started&&st.names&&st.names.length){
+  var bon=g.bonus||{};
+  rows=st.names.map(function(n,i){var p=0;(st.races||[]).forEach(function(r){if(!r||!r.done)return;if(r.w1===i)p+=r.g||0;if(r.w2===i)p+=r.s||0;p+=Math.max(0,((r.bz&&r.bz[i])||0)+(((bon[i]||{})[r.id])||0));});
+   if(st.stage==="end"&&st.hands&&st.hands[i]&&st.hands[i][0])p+=tierBonusRaw(st,st.hands[i][0]);
+   return {name:n,team:(st.teams&&st.teams[i])||"",p:p};});
+ }else{var pm=g.players||{};rows=Object.keys(pm).map(function(k){return {name:(pm[k]||{}).name||"?",team:(pm[k]||{}).team||"",p:0};});}
+ rows.sort(function(a,b){return b.p-a.p;});return rows;
+}
+function isoDay(t){var d=new Date(t||Date.now());return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);}
+function openEditor(where,id,code,date,rows){EDIT={where:where,id:id,code:code||"",date:isoDay(date),rows:rows.map(function(r){return {name:r.name,team:r.team||"",p:+r.p||0};})};draw();}
+function syncEdit(){if(!EDIT)return;document.querySelectorAll("[data-ed-n]").forEach(function(e){var i=+e.getAttribute("data-ed-n");if(EDIT.rows[i])EDIT.rows[i].name=e.value;});document.querySelectorAll("[data-ed-p]").forEach(function(e){var i=+e.getAttribute("data-ed-p");if(EDIT.rows[i])EDIT.rows[i].p=parseInt(e.value,10)||0;});var d=document.getElementById("ed_date");if(d&&d.value)EDIT.date=d.value;}
+function edBox(){
+ var h='<div class="edbox stack" style="gap:8px"><div class="lbl">Classifica finale · nome e punti, dal 1° all\'ultimo</div>';
+ h+='<datalist id="knownnames">'+knownNames().map(function(n){return '<option value="'+esc(n)+'">';}).join("")+'</datalist>';
+ EDIT.rows.forEach(function(r,i){h+='<div class="edrow"><b class="pos">'+(i+1)+'°</b><input data-ed-n="'+i+'" list="knownnames" value="'+esc(r.name)+'" aria-label="Nome '+(i+1)+'°" maxlength="16"><input data-ed-p="'+i+'" type="number" inputmode="numeric" value="'+r.p+'" aria-label="Punti '+(i+1)+'°" class="pts" title="Punti"><button type="button" class="btn sm alt" data-act="edup" data-i="'+i+'"'+(i===0?' disabled':'')+' aria-label="Sposta su">↑</button><button type="button" class="btn sm alt" data-act="eddown" data-i="'+i+'"'+(i===EDIT.rows.length-1?' disabled':'')+' aria-label="Sposta giù">↓</button><button type="button" class="btn sm alt" data-act="edrm" data-i="'+i+'" aria-label="Togli">✕</button></div>';});
+ h+='<div class="row"><button type="button" class="btn sm alt" data-act="edadd">+ Aggiungi giocatore</button><label style="margin:0;display:flex;align-items:center;gap:6px">Data <input id="ed_date" type="date" value="'+esc(EDIT.date)+'" style="width:auto"></label></div>';
+ h+='<p class="mut" style="margin:0">L\'ordine è la classifica. A pari punti lo scontro conta come pareggio per l\'Elo.</p>';
+ h+='<div class="row"><button type="button" class="btn acc" data-act="edsave">Salva nello storico</button><button type="button" class="btn sm alt" data-act="edcancel">Annulla</button></div></div>';
+ return h;
+}
+function eloBanner(){return ELODIRTY?'<div class="st msg" style="box-shadow:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b class="grow">Lo storico è cambiato: aggiorna l\'Elo.</b><button type="button" class="btn acc" data-act="recalc">Aggiorna l\'Elo</button></div>':'';}
 function ageTxt(t){if(!t)return "data sconosciuta";var d=(Date.now()-t)/86400000;if(d<1){var h=Math.round(d*24);return h<1?"meno di un'ora fa":h+" h fa";}return Math.floor(d)+" giorni fa";}
 function ic(c){return '<span class="ic '+(c.ok?'ok':'ko')+'" aria-hidden="true">'+(c.ok?'✓':'!')+'</span>';}
 function draw(){
@@ -74,10 +104,13 @@ function draw(){
  if(GAMES===null)h+='<p class="mut" style="margin:0">Carico…</p>';
  else if(GAMES===false)h+='<p class="mut" style="margin:0">Non riesco a elencare le partite: aggiorna le regole (punto 2).</p>';
  else{
-  h+='<p class="mut" style="margin:0">'+GAMES.length+' partit'+(GAMES.length===1?'a':'e')+' salvat'+(GAMES.length===1?'a':'e')+'. Cancellare una partita non tocca foto e livelli.</p>';
-  GAMES.forEach(function(g){h+='<div class="gm"><span class="code">'+esc(g.code)+'</span><span class="grow mut">'+g.players+' giocator'+(g.players===1?'e':'i')+' · '+(g.started?('gara '+g.races+' di 4'):'in sala d\'attesa')+' · '+esc(ageTxt(g.created))+'</span><button type="button" class="btn sm alt" data-act="delgame" data-c="'+esc(g.code)+'">'+(CONF==="g"+g.code?'Tocca ancora: cancello':'Cancella')+'</button></div>';});
-  var old=GAMES.filter(function(g){return !g.created||(Date.now()-g.created)>7*86400000;}).length;
-  if(GAMES.length)h+='<div class="row" style="margin-top:8px"><button type="button" class="btn sm alt" data-act="delold"'+(old?'':' disabled')+'>'+(CONF==="old"?'Tocca ancora: cancello':'Cancella le partite più vecchie di 7 giorni ('+old+')')+'</button></div>';
+  var empty=GAMES.filter(function(g){return !g.players;});
+  h+='<p class="mut" style="margin:0">'+GAMES.length+' partit'+(GAMES.length===1?'a':'e')+' salvat'+(GAMES.length===1?'a':'e')+'. Per quelle con giocatori puoi scrivere o correggere la classifica finale: finisce nello storico e conta per l\'Elo.</p>'+eloBanner();
+  if(empty.length)h+='<div class="row"><button type="button" class="btn sm acc" data-act="delempty">'+(CONF==="empty"?'Tocca ancora: cancello':'Cancella le '+empty.length+' partite senza giocatori')+'</button></div>';
+  GAMES.forEach(function(g){var hid=histByCode(g.code);h+='<div class="gm"><span class="code">'+esc(g.code)+'</span><span class="grow mut">'+g.players+' giocator'+(g.players===1?'e':'i')+' · '+(g.ended?'finita':(g.started?(g.races+' gare chiuse'):'in sala d\'attesa'))+' · '+esc(ageTxt(g.created))+(hid?' · <b style="color:#0b7a3e">nello storico</b>':'')+'</span><span class="acts">'+(g.players?'<button type="button" class="btn sm '+(hid?'alt':'yel')+'" data-act="edgame" data-c="'+esc(g.code)+'">'+(hid?'Modifica classifica':'Scrivi classifica')+'</button>':'')+'<button type="button" class="btn sm alt" data-act="delgame" data-c="'+esc(g.code)+'">'+(CONF==="g"+g.code?'Tocca ancora: cancello':'Cancella')+'</button></span></div>';
+   if(EDIT&&EDIT.where==="g"+g.code)h+=edBox();});
+  var old=GAMES.filter(oldOk).length;
+  if(GAMES.length)h+='<div class="row" style="margin-top:8px"><button type="button" class="btn sm alt" data-act="delold"'+(old?'':' disabled')+'>'+(CONF==="old"?'Tocca ancora: cancello':'Cancella le partite vecchie già nello storico ('+old+')')+'</button></div>';
  }
  h+='</section>';
  // 4 foto
@@ -101,15 +134,15 @@ function draw(){
  else if(HIST===false)h+='<p class="mut" style="margin:0">Non riesco a leggere lo storico: aggiorna le regole.</p>';
  else{var hl=Object.keys(HIST).map(function(k){var x=HIST[k]||{};x.id=k;return x;}).sort(function(a,b){return (b.date||0)-(a.date||0);});
   h+='<p class="mut" style="margin:0">'+hl.length+' tornei salvati. Cancella quelli di prova: spariscono anche dalle statistiche.</p>';
-  if(hl.length)h+='<div class="row"><button type="button" class="btn sm alt" data-act="recalc">Ricalcola l\'Elo</button></div>';
-  hl.forEach(function(x){var w=(x.players||[]).filter(function(p){return p.pos===1;})[0];h+='<div class="gm"><span class="grow"><b>'+esc(new Date(x.date||0).toLocaleDateString("it-IT"))+'</b> · '+((x.players||[]).length)+' giocatori'+(w?' · vince '+esc(w.name)+' ('+w.p+' pt)':'')+'</span><button type="button" class="btn sm alt" data-act="delhist" data-c="'+esc(x.id)+'">'+(CONF==="h"+x.id?'Tocca ancora: cancello':'Cancella')+'</button></div>';});}
+  h+=eloBanner();if(hl.length&&!ELODIRTY)h+='<div class="row"><button type="button" class="btn sm alt" data-act="recalc">Ricalcola l\'Elo</button></div>';
+  hl.forEach(function(x){var w=(x.players||[]).filter(function(p){return p.pos===1;})[0];h+='<div class="gm gl"><span class="grow"><b>'+esc(new Date(x.date||0).toLocaleDateString("it-IT"))+'</b> · '+((x.players||[]).length)+' giocatori'+(w?' · vince '+esc(w.name)+' ('+w.p+' pt)':'')+'</span><button type="button" class="btn sm alt" data-act="edhist" data-c="'+esc(x.id)+'">Modifica</button><button type="button" class="btn sm alt" data-act="delhist" data-c="'+esc(x.id)+'">'+(CONF==="h"+x.id?'Tocca ancora: cancello':'Cancella')+'</button></div>';if(EDIT&&EDIT.where==="h"+x.id)h+=edBox();});}
  h+='</section>';
  // 7 giocatori
  h+='<section class="st stack" style="gap:6px"><h2 class="t" style="font-size:28px">7 · Giocatori registrati</h2>';
  if(REGP===null)h+='<p class="mut" style="margin:0">Carico…</p>';
  else if(REGP===false)h+='<p class="mut" style="margin:0">Non riesco a leggere i giocatori: aggiorna le regole.</p>';
  else{var rk=Object.keys(REGP);h+='<p class="mut" style="margin:0">Luigi, Riccardo, Mirko, Simone, Luca e Fabio ci sono sempre. Qui sotto i nomi aggiunti ('+rk.length+'). Togliere un nome non cancella i suoi tornei.</p>';
-  rk.forEach(function(k){h+='<div class="gm"><b class="grow">'+esc((REGP[k]||{}).name||k)+'</b><button type="button" class="btn sm alt" data-act="delplayer" data-c="'+esc(k)+'">'+(CONF==="p"+k?'Tocca ancora: tolgo':'Togli')+'</button></div>';});}
+  rk.forEach(function(k){h+='<div class="gm gl"><b class="grow">'+esc((REGP[k]||{}).name||k)+'</b><button type="button" class="btn sm alt" data-act="delplayer" data-c="'+esc(k)+'">'+(CONF==="p"+k?'Tocca ancora: tolgo':'Togli')+'</button></div>';});}
  h+='</section>';
  h+='<p class="mut" style="text-align:center">Pagina riservata alla manutenzione: non ha password, quindi non condividerne il link.</p>';
  a.innerHTML=h;
@@ -127,10 +160,29 @@ document.getElementById("app").addEventListener("click",async function(ev){
  if(a==="copy"){var ta=document.getElementById("rules");var ok=false;try{await navigator.clipboard.writeText(RULES);ok=true;}catch(e){try{ta.removeAttribute("readonly");ta.focus();ta.select();ta.setSelectionRange(0,999999);ok=document.execCommand("copy");ta.setAttribute("readonly","");}catch(x){}}
   MSG=ok?"Regole copiate. Ora aprile su Firebase e incolla.":"Non riesco a copiare da solo: tieni premuto nel riquadro, scegli Seleziona tutto e poi Copia.";draw();return;}
  if(a==="delgame"){var c=t.getAttribute("data-c");if(CONF!=="g"+c){ask("g"+c);return;}CONF=null;await wt(DB.ref("games/"+c).remove());MSG="Partita "+c+" cancellata.";GAMES=GAMES.filter(function(g){return g.code!==c;});draw();return;}
- if(a==="delold"){if(CONF!=="old"){ask("old");return;}CONF=null;var del=GAMES.filter(function(g){return !g.created||(Date.now()-g.created)>7*86400000;});for(var i=0;i<del.length;i++)await wt(DB.ref("games/"+del[i].code).remove());MSG=del.length+" partite cancellate.";loadGames();return;}
- if(a==="delhist"){var hc=t.getAttribute("data-c");if(CONF!=="h"+hc){ask("h"+hc);return;}CONF=null;await wt(DB.ref("global/history/"+hc).remove());delete HIST[hc];await recalcElo();MSG="Torneo tolto dallo storico. Elo ricalcolato.";draw();return;}
- if(a==="recalc"){await recalcElo();MSG="Elo ricalcolato su tutto lo storico.";draw();return;}
+ if(a==="delold"){if(CONF!=="old"){ask("old");return;}CONF=null;var del=GAMES.filter(oldOk);for(var i=0;i<del.length;i++)await wt(DB.ref("games/"+del[i].code).remove());MSG=del.length+" partite cancellate.";loadGames();return;}
+ if(a==="delhist"){var hc=t.getAttribute("data-c");if(CONF!=="h"+hc){ask("h"+hc);return;}CONF=null;await wt(DB.ref("global/history/"+hc).remove());delete HIST[hc];await recalcElo();ELODIRTY=false;MSG="Torneo tolto dallo storico. Elo ricalcolato.";draw();return;}
+ if(a==="recalc"){await recalcElo();ELODIRTY=false;var er=Core.elo(Object.keys(HIST||{}).map(function(k){var x=HIST[k];x.id=k;return x;})).ratings;MSG="Elo aggiornato: "+Object.keys(er).map(function(k){return er[k];}).sort(function(a,b){return b.r-a.r;}).map(function(x){return x.name+" "+x.r;}).join(" · ");draw();return;}
  if(a==="delplayer"){var pc=t.getAttribute("data-c");if(CONF!=="p"+pc){ask("p"+pc);return;}CONF=null;await wt(DB.ref("global/players/"+pc).remove());delete REGP[pc];MSG="Giocatore tolto.";draw();return;}
+ if(a==="delempty"){if(CONF!=="empty"){ask("empty");return;}CONF=null;var em=GAMES.filter(function(g){return !g.players;});for(var j=0;j<em.length;j++)await wt(DB.ref("games/"+em[j].code).remove());MSG=em.length+" partite vuote cancellate.";loadGames();return;}
+ if(a==="edgame"){var gc=t.getAttribute("data-c"),gg=GAMES.filter(function(x){return x.code===gc;})[0]||{},hid=histByCode(gc);
+  if(hid){var he=HIST[hid];openEditor("g"+gc,hid,gc,he.date,(he.players||[]).slice().sort(function(a,b){return (a.pos||99)-(b.pos||99);}));}
+  else openEditor("g"+gc,"g_"+gc+"_"+(gg.created||Date.now()),gc,gg.created||Date.now(),suggestFromGame(gc));return;}
+ if(a==="edhist"){var hc2=t.getAttribute("data-c"),he2=HIST[hc2];if(!he2)return;openEditor("h"+hc2,hc2,he2.code,he2.date,(he2.players||[]).slice().sort(function(a,b){return (a.pos||99)-(b.pos||99);}));return;}
+ if(a==="edcancel"){EDIT=null;draw();return;}
+ if(a==="edup"||a==="eddown"){syncEdit();var ii=+t.getAttribute("data-i"),jj=ii+(a==="edup"?-1:1);if(jj<0||jj>=EDIT.rows.length)return;var tmp=EDIT.rows[ii];EDIT.rows[ii]=EDIT.rows[jj];EDIT.rows[jj]=tmp;draw();return;}
+ if(a==="edrm"){syncEdit();EDIT.rows.splice(+t.getAttribute("data-i"),1);draw();return;}
+ if(a==="edadd"){syncEdit();EDIT.rows.push({name:"",team:"",p:0});draw();return;}
+ if(a==="edsave"){syncEdit();var rows=EDIT.rows.filter(function(r){return String(r.name).trim();});
+  if(rows.length<2){MSG="Servono almeno 2 giocatori.";draw();return;}
+  var names={},dup=false;rows.forEach(function(r){var k=nk(r.name.trim());if(names[k])dup=true;names[k]=1;});if(dup){MSG="Lo stesso nome compare due volte.";draw();return;}
+  var kn=knownNames();rows.forEach(function(r){r.name=r.name.trim();var m=kn.filter(function(x){return nk(x)===nk(r.name);})[0];if(m)r.name=m;});
+  var old=HIST[EDIT.id]||{},dt=new Date(EDIT.date+"T20:00:00").getTime();
+  var ent={date:isNaN(dt)?(old.date||Date.now()):dt,code:EDIT.code||old.code||"",tid:old.tid||"",races:old.races||[],manual:true,
+   players:rows.map(function(r,q){var o=(old.players||[]).filter(function(p){return nk(p.name)===nk(r.name);})[0]||{};return {name:r.name,team:r.team||o.team||"",pos:q+1,p:r.p,rw:o.rw||0,b:o.b||0,f:o.f||0,fb:o.fb||0,cards:o.cards||[],last:o.last||""};})};
+  await wt(DB.ref("global/history/"+EDIT.id).set(ent));HIST[EDIT.id]=ent;
+  for(var q=0;q<rows.length;q++){var rk=nk(rows[q].name);if(DEFPLAYERS.every(function(x){return nk(x)!==rk;})&&!(REGP||{})[rk]){try{await wt(DB.ref("global/players/"+rk).set({name:rows[q].name,t:Date.now()}));(REGP=REGP||{})[rk]={name:rows[q].name};}catch(e){}}}
+  EDIT=null;ELODIRTY=true;MSG="Classifica salvata nello storico. Ora tocca «Aggiorna l'Elo».";draw();return;}
  if(a==="delimgs"){if(CONF!=="imgs"){ask("imgs");return;}CONF=null;await wt(DB.ref("global/images").remove());IMGS={};MSG="Foto tolte.";draw();return;}
  if(a==="tierreset"){if(CONF!=="tiers"){ask("tiers");return;}CONF=null;var m={};Core.parseRoster(DEF).forEach(function(x){m[tkey(x.n)]=x.t||"D";});await wt(DB.ref("global/tiers").set(m));TIERS=m;MSG="Livelli ripristinati.";draw();return;}
  }catch(e){MSG="Non riuscito: "+errTxt(e)+(/permesso/.test(errTxt(e))?". Aggiorna le regole (punto 2).":"");draw();}

@@ -30,8 +30,8 @@ Core.elo=function(hist){
  var E=Core.ELO,R={},per={},series={};
  var list=(hist||[]).filter(function(h){return h&&h.players&&h.players.length>1;}).slice().sort(function(a,b){return (a.date||0)-(b.date||0);});
  list.forEach(function(h,ti){
-  var ps=h.players.map(function(p){var k=Core.nameKey(p.name);if(!R[k])R[k]={name:p.name,r:E.start,n:0};return {k:k,p:+p.p||0};}),n=ps.length,d={};
-  ps.forEach(function(a){var s=0;ps.forEach(function(b){if(a===b)return;var ex=1/(1+Math.pow(10,(R[b.k].r-R[a.k].r)/400));var res=a.p>b.p?1:(a.p===b.p?0.5:0);s+=res-ex;});
+  var ps=h.players.map(function(p){var k=Core.nameKey(p.name);if(!R[k])R[k]={name:p.name,r:E.start,n:0};return {k:k,p:+p.p||0,pos:+p.pos||0};}),n=ps.length,d={};
+  ps.forEach(function(a){var s=0;ps.forEach(function(b){if(a===b)return;var ex=1/(1+Math.pow(10,(R[b.k].r-R[a.k].r)/400));var res=a.p===b.p?0.5:((a.pos&&b.pos)?(a.pos<b.pos?1:0):(a.p>b.p?1:0));s+=res-ex;});
    var K=E.k*(R[a.k].n<E.prov?2:1);d[a.k]=K/(n-1)*s;});
   per[h.id||("t"+ti)]={};
   ps.forEach(function(a){var b0=R[a.k].r;R[a.k].r=b0+d[a.k];R[a.k].n++;R[a.k].name=h.players.filter(function(p){return Core.nameKey(p.name)===a.k;})[0].name;
