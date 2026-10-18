@@ -481,12 +481,12 @@ function vPlayer(){
  }
  if(S.stage==="draft"){
   var d=S.dr,np=Object.keys(d.picks).length,who=d.order[np],tm={};Object.keys(d.picks).forEach(function(q){tm[d.picks[q]]=+q;});
-  var my=d.order.indexOf(i);h+=startBanner(S.pole.start).replace('Chi parte','Gara 1: parte');
-  if(who===i){h+='<div class="st turn"><h2 class="t" style="font-size:32px">Tocca a te!</h2><p style="margin:2px 0 0;font-weight:800">Draft, giro '+(d.round+1)+' di '+DRAFTS+': prendi una carta.</p></div>';
-   h+=d.revealed.filter(function(c){return tm[c]===undefined;}).map(function(c){return aCard(c,{btn:'<button type="button" class="btn" data-act="drpick" data-n="'+esc(c)+'" data-w="'+i+'"'+(BUSY?' disabled':'')+'>Prendi '+esc(c)+'</button>'});}).join("");}
-  else{h+=infoBox()+'<p class="mut" style="margin:0">'+(d.picks[i]!==undefined?'Hai già preso '+esc(d.picks[i])+' in questo giro.':'Tu sei '+(my+1)+'° a scegliere in questo giro: tocca a te tra '+(my-np)+'.')+'</p>';
-   h+=d.revealed.map(function(c){var tk=tm[c];return aCard(c,{taken:tk!==undefined?S.names[tk]:null});}).join("");}
-  return h+handRow(i)+'</div>';
+  var my=d.order.indexOf(i),mine=who===i;
+  h+='<div class="row" style="gap:8px"><span class="pill">Draft · giro '+(d.round+1)+' di '+DRAFTS+'</span><span class="grow"></span><span class="chipy">Gara 1: parte '+esc(S.names[S.pole.start])+'</span></div>';
+  h+=turnBar(mine,'<span class="odot" style="background:'+pcol(who)+'">'+esc(ini(S.names,who))+'</span><b class="grow">Sceglie '+esc(S.names[who])+'</b><span class="mut">'+(d.picks[i]!==undefined?'hai preso '+esc(d.picks[i]):'tu tra '+(my-np))+'</span>');
+  h+=orderDots(d.order,np,i);
+  h+='<div class="grid2">'+d.revealed.map(function(c){var tk=tm[c];return miniCard(c,{by:tk!==undefined?S.names[tk]:null,act:(mine&&tk===undefined)?"drpick":null});}).join("")+'</div>';
+  return h+teamBar(i,d.picks[i])+'</div>';
  }
  if(ph==="none"||ph==="done"){
   if(r&&r.done){var mine=raceScore(r,i);h+='<div class="st"><div class="lbl">Gara '+k+'</div><p style="margin:4px 0 0;font-weight:800">Con '+esc(r.picks[i])+' hai fatto '+mine+' punt'+(mine===1?'o':'i')+'.</p>'+(r.tchg&&r.tchg.length?'<p class="mut" style="margin:6px 0 0">Livelli cambiati: '+r.tchg.map(function(c){return esc(c.n)+' '+c.from+'→'+c.to;}).join(', ')+'</p>':'')+'</div>';}
@@ -495,13 +495,15 @@ function vPlayer(){
  }
  h+='<span class="pill" style="align-self:flex-start">'+raceLabel(k-1)+'</span>';
  if(ph==="sel"){
-  var npk=nPicks(r),who2=r.order[npk],my2=r.order.indexOf(i);h+=startBanner(r.first);
-  if(r.picks[i]!==undefined){h+=infoBox()+'<div class="lbl">Il tuo racer per questa gara</div>'+aCard(r.picks[i]);}
-  else if(who2===i){h+='<div class="st turn"><h2 class="t" style="font-size:32px">Tocca a te!</h2><p style="margin:2px 0 0;font-weight:800">Scegli quale racer far correre nella gara '+k+'.</p></div>';
-   h+=(S.hands[i]||[]).map(function(c){return aCard(c,{btn:'<button type="button" class="btn" data-act="selpick" data-n="'+esc(c)+'" data-w="'+i+'"'+(BUSY?' disabled':'')+'>Gioca '+esc(c)+'</button>'});}).join("");}
-  else{h+=infoBox()+'<p class="mut" style="margin:0">Tu sei '+(my2+1)+'° a scegliere: tocca a te tra '+(my2-npk)+'.</p>'+handRow(i);}
+  var npk=nPicks(r),who2=r.order[npk],my2=r.order.indexOf(i),mine2=who2===i&&r.picks[i]===undefined;FARTMINI=true;
+  h+='<div class="row" style="gap:8px;margin-top:-6px"><span class="grow"></span><span class="chipy">Parte '+esc(S.names[r.first])+'</span></div>';
+  if(r.picks[i]!==undefined)h+='<div class="wait2"><b class="grow">Hai scelto '+esc(r.picks[i])+'</b><span class="mut">'+(npk<N()?'sceglie '+esc(S.names[who2]):'')+'</span></div>';
+  else h+=turnBar(mine2,'<span class="odot" style="background:'+pcol(who2)+'">'+esc(ini(S.names,who2))+'</span><b class="grow">Sceglie '+esc(S.names[who2])+'</b><span class="mut">tu tra '+(my2-npk)+'</span>','tocca un racer');
+  h+=orderDots(r.order,npk,i);
   var chosen=r.order.filter(function(p){return r.picks[p]!==undefined&&p!==i;});
-  if(chosen.length)h+='<div class="st"><div class="lbl">Già scelti dagli altri</div><div class="stack" style="gap:6px;margin-top:8px">'+chosen.map(function(p){return '<div class="row">'+dot(p)+'<b>'+esc(S.names[p])+'</b><span class="grow"></span>'+cardPill(r.picks[p])+'</div>';}).join("")+'</div></div>';
+  if(chosen.length)h+='<div class="row" style="gap:6px"><span class="lbl">Già scelti</span>'+chosen.map(function(p){return '<button type="button" class="pill cardpill" data-act="card" data-n="'+esc(r.picks[p])+'" style="background:'+(TC[tierOf(r.picks[p])]||'#e9e9f2')+'">'+esc(S.names[p])+': '+esc(r.picks[p])+'</button>';}).join("")+'</div>';
+  if(r.picks[i]!==undefined)h+='<div class="grid2">'+miniCard(r.picks[i])+'</div><div class="lbl">Ti restano</div><div class="grid2">'+(S.hands[i]||[]).map(function(c){return miniCard(c);}).join("")+'</div>';
+  else h+='<div class="lbl">'+(mine2?'Scegli chi corre nella gara '+k:'La tua mano')+'</div><div class="grid2">'+(S.hands[i]||[]).map(function(c){return miniCard(c,{act:mine2?"selpick":null});}).join("")+'</div>';
   return h+'</div>';
  }
  if(ph==="starter"){
@@ -524,9 +526,22 @@ function vPlayer(){
  h+=handRow(i,'Ti restano in mano');
  return h+'</div>';
 }
-var SHOWHAND=null,CONFIRM=null,FARTSEEN=null,FARTTOAST=null;
+var SHOWHAND=null,CONFIRM=null,FARTSEEN=null,FARTTOAST=null,SHEET=null,TEAMBAR=false,FARTMINI=false;
+/* carta compatta (2 colonne) e scheda dal basso */
+function miniCard(n,o){o=o||{};var t=tierOf(n),a=abOf(n),img=artOf(n),by=o.by;
+ return '<button type="button" class="mc'+(by!=null?' taken':'')+'" data-act="sheet" data-n="'+esc(n)+'"'+(o.act?' data-a="'+o.act+'"':'')+(by!=null?' data-by="presa da '+esc(by)+'"':'')+' aria-label="'+esc(n)+(by!=null?', presa da '+esc(by):'')+'">'+
+  (img?'<img src="'+img+'" alt="">':'<span class="noimg" style="background:'+(TC[t]||'#e9e9f2')+'">'+esc(n.charAt(0))+'</span>')+'<span class="tb" style="background:'+(TC[t]||'#e9e9f2')+'">'+(t||'?')+'</span><span class="nm2">'+esc(n)+'</span><span class="ab2">'+esc(a[1]||'')+'</span></button>';}
+function orderDots(order,np,me){return '<div class="order2"><span class="lbl" style="margin-right:2px">Ordine</span>'+order.map(function(p,k){return '<span class="odot'+(k<np?' done':'')+(k===np?' now':'')+(p===me?' me':'')+'" style="background:'+pcol(p)+'" title="'+esc(S.names[p])+'">'+esc(ini(S.names,p))+'</span>';}).join("")+'</div>';}
+function turnBar(mine,txt,sub){return mine?'<div class="turn2"><b class="grow">Tocca a te!</b><span>'+esc(sub||'tocca una carta')+'</span></div>':'<div class="wait2">'+txt+'</div>';}
+function teamBar(i,hl){TEAMBAR=true;var h=S.hands[i]||[],slots=[];for(var q=0;q<Math.max(DRAFTS,h.length);q++)slots.push(h[q]||null);
+ return '<div class="teambar"><div class="lbl">La tua squadra · tocca per l\'abilità</div><div class="slots">'+slots.map(function(c){return c?'<button type="button" class="f'+(hl===c?' hl':'')+'" data-act="card" data-n="'+esc(c)+'" style="background:'+(TC[tierOf(c)]||'#e9e9f2')+'">'+esc(c)+' <b>'+(tierOf(c)||'?')+'</b></button>':'<span></span>';}).join("")+'</div></div>';}
+function vSheet(){var n=SHEET.n,t=tierOf(n),a=abOf(n),img=artOf(n),act=SHEET.a;var lbl=act==="drpick"?'Prendi '+esc(n):(act==="selpick"?'Gioca '+esc(n):'');
+ return '<div class="tut cardmodal sheetm" role="dialog" aria-modal="true" aria-label="'+esc(n)+'" data-act="sheetclose"><div class="sheet"><div class="grab"></div>'+(img?'<img src="'+img+'" alt="">':'')+
+  '<h3>'+esc(n)+' <span class="tierb" style="background:'+(TC[t]||'#e9e9f2')+'">'+(t||'?')+'</span></h3>'+(a[0]?'<div class="pw">'+esc(a[0])+'</div>':'')+'<p>'+esc(a[1]||'Abilità non inserita.')+'</p>'+
+  '<div class="row" style="gap:8px"><button type="button" class="btn alt" data-act="sheetclose" style="flex:1">Chiudi</button>'+(lbl?'<button type="button" class="btn acc big" style="flex:2" data-act="'+act+'" data-n="'+esc(n)+'" data-w="'+ME+'"'+(BUSY?' disabled':'')+'>'+lbl+'</button>':'')+'</div></div></div>';}
+
 function fartKey(){return (GAME&&GAME.name?GAME.name:"x").toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,24)||"x";}
-function fartBtn(){return '<div class="fartdock"><button type="button" class="fartbtn" data-act="fart" aria-label="Rutto o scoreggia: lo sentono tutti, anche sul tablet. Conta negli spareggi"><svg viewBox="0 0 52 34" width="44" height="29" fill="none" stroke="#14121f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h9M1.5 17h7M3 23h9"/><path d="M19 27a6 6 0 0 1 .5-12 9 9 0 0 1 16.5-3 7.5 7.5 0 0 1 7 11.5A5.5 5.5 0 0 1 38 30H22.5A5 5 0 0 1 19 27z" fill="#ffffff"/><circle cx="29" cy="20" r="1.6" fill="#14121f" stroke="none"/><circle cx="35" cy="20" r="1.6" fill="#14121f" stroke="none"/></svg><span>Rutti e scoregge</span></button></div>';}
+function fartBtn(){return '<div class="fartdock'+(TEAMBAR?' up mini':(FARTMINI?' mini':''))+'"><button type="button" class="fartbtn" data-act="fart" aria-label="Rutto o scoreggia: lo sentono tutti, anche sul tablet. Conta negli spareggi"><svg viewBox="0 0 52 34" width="44" height="29" fill="none" stroke="#14121f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h9M1.5 17h7M3 23h9"/><path d="M19 27a6 6 0 0 1 .5-12 9 9 0 0 1 16.5-3 7.5 7.5 0 0 1 7 11.5A5.5 5.5 0 0 1 38 30H22.5A5 5 0 0 1 19 27z" fill="#ffffff"/><circle cx="29" cy="20" r="1.6" fill="#14121f" stroke="none"/><circle cx="35" cy="20" r="1.6" fill="#14121f" stroke="none"/></svg><span>Rutti e scoregge</span></button></div>';}
 function freeFart(){var k=parseInt(SND,10);if(isNaN(k)||!FARTS[k])k=Math.floor(Math.random()*FARTS.length);playClip(FARTS[k][1]);if(GAME&&BE)BE.sendFart(GAME.code,fartKey(),{clip:FARTS[k][1],name:GAME.name,n:Math.random()}).catch(function(){});}
 function fartToast(){return FARTTOAST&&FARTTOAST.until>Date.now()?'<div class="farttoast" role="status">💨 '+esc(FARTTOAST.name)+'</div>':'';}
 function checkTurn(){
@@ -599,7 +614,8 @@ function vSet(){
 
 /* ---------------- carta e storico (finestre) ---------------- */
 function statsBtn(){return '<button type="button" class="btn big alt tutbtn" data-act="stats"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Storico e statistiche</button>';}
-function vCardModal(){return '<div class="tut cardmodal" role="dialog" aria-modal="true" aria-label="'+esc(CARDV)+'" data-act="cardclose"><div class="cm-in">'+aCard(CARDV,{btn:'<button type="button" class="btn" data-act="cardclose">Chiudi</button>'})+'</div></div>';}
+function vCardModal(){SHEET={n:CARDV,a:null};var x=vSheet();SHEET=null;return x;}
+function vCardModalOld(){return '<div class="tut cardmodal" role="dialog" aria-modal="true" aria-label="'+esc(CARDV)+'" data-act="cardclose"><div class="cm-in">'+aCard(CARDV,{btn:'<button type="button" class="btn" data-act="cardclose">Chiudi</button>'})+'</div></div>';}
 function fmtDate(t){try{return new Date(t).toLocaleDateString("it-IT",{day:"numeric",month:"short",year:"numeric"});}catch(e){return "";}}
 var STATTAB="classifica",STATOPEN=null;
 function vStats(){
@@ -660,7 +676,7 @@ function render(){
  var act=document.activeElement,id=act&&act.id,pos=act&&act.selectionStart,vals={};
  document.querySelectorAll("#app input,#app textarea").forEach(function(e){if(e.id)vals[e.id]=e.value;});var pk0=document.getElementById("f_pick");if(pk0)PICKSEL=pk0.value;
  var tutEl=document.querySelector(".tut:not(.cardmodal)"),tutTop=tutEl?tutEl.scrollTop:0;
- var m=flipCapture();pendingSeen=[];var html;
+ var m=flipCapture();pendingSeen=[];TEAMBAR=false;FARTMINI=false;var html;
  if(!GAME)html=vHome();
  else if(!S)html='<div class="home stack"><span class="logo t">Magical Outlet</span><div class="st">Collegamento alla partita '+esc(GAME.code)+'…</div><button type="button" class="btn alt" data-act="leave">Annulla</button></div>';
  else if(!S.started)html=GAME.role==="banco"?vLobbyHost():vLobbyPlayer();
@@ -675,6 +691,7 @@ function render(){
  if(TUT)html+=vTut();
  if(STATSV)html+=vStats();
  if(CARDV)html+=vCardModal();
+ if(SHEET)html+=vSheet();
  a.innerHTML=html;
  Object.keys(vals).forEach(function(k){var e=document.getElementById(k);if(e&&!e.disabled&&k!=="f_code"&&k!=="f_name"&&k!=="f_team")e.value=vals[k];else if(e&&(k==="f_code"||k==="f_name"||k==="f_team")&&vals[k])e.value=vals[k];});
  var se=document.getElementById("f_snd");if(se)se.value=SND;
@@ -803,6 +820,8 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "tut":TUT=true;render();try{var tt=document.querySelector(".tut");if(tt){tt.scrollTop=0;var cb=tt.querySelector("[data-act=tutclose]");cb&&cb.focus();}}catch(e){}return;
  case "tutclose":TUT=false;render();return;
  case "card":if(!NM)return;CARDV=NM;render();return;
+ case "sheet":if(!NM)return;SHEET={n:NM,a:t.getAttribute("data-a")};render();return;
+ case "sheetclose":if(ev.target.closest(".sheet")&&!ev.target.closest("button"))return;SHEET=null;render();return;
  case "cardclose":if(ev.target.closest(".cm-in")&&!ev.target.closest("button"))return;CARDV=null;render();return;
  case "stats":STATSV=true;render();try{var sx=document.querySelector(".tut");if(sx)sx.scrollTop=0;}catch(e){}return;
  case "statsclose":STATSV=false;render();return;
@@ -840,7 +859,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "startdraft":
   commit(function(o){if(o.stage!=="pole"||!o.pole)return false;startDraft(o);});return;
  case "drpick":
-  var who0=actor(W);if(who0===null||isNaN(who0))return;BUSY=typeof ME==="number";render();
+  SHEET=null;var who0=actor(W);if(who0===null||isNaN(who0))return;BUSY=typeof ME==="number";render();
   commit(function(o){if(o.stage!=="draft"||!o.dr)return false;var d=o.dr,n=o.names.length,np=Object.keys(d.picks).length,who=d.order[np];if(who!==who0)return false;
    if(d.revealed.indexOf(NM)<0)return false;var taken=Object.keys(d.picks).map(function(k){return d.picks[k];});if(taken.indexOf(NM)>=0)return false;
    d.picks[who]=NM;o.hands[who].push(NM);np++;
@@ -855,7 +874,7 @@ document.getElementById("app").addEventListener("click",function(ev){
    else{var co=chooseOrder(o);nr.order=co.order;nr.why=co.why;var st=standings(o);nr.starterBy=st[st.length-1].i;}
    o.races.push(nr);});return;
  case "selpick":
-  var who1=actor(W);if(who1===null||isNaN(who1))return;BUSY=typeof ME==="number";SHOWHAND=null;render();
+  SHEET=null;var who1=actor(W);if(who1===null||isNaN(who1))return;BUSY=typeof ME==="number";SHOWHAND=null;render();
   commit(function(o){var r=curOf(o);if(!r||phaseOf(o,r)!=="sel")return false;var who=r.order[nPicks(r)];if(who!==who1)return false;if(!rm(o.hands[who],NM))return false;r.picks[who]=NM;}).then(afterPick);return;
  case "selundo":
   commit(function(o){var r=curOf(o);if(!r||phaseOf(o,r)!=="sel")return false;var np=nPicks(r);if(!np)return false;var who=r.order[np-1];o.hands[who].push(r.picks[who]);delete r.picks[who];});return;
@@ -895,7 +914,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "reset2":confirmReset=false;TAB="live";BE.resetFarts(GAME.code);commit(function(o){startTournament(o,o.names.slice(),(o.teams||[]).slice());});return;
  }
 });
-document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if(CARDV){CARDV=null;render();}else if(STATSV){STATSV=false;render();}else if(TUT){TUT=false;render();}});
+document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if(SHEET){SHEET=null;render();}else if(CARDV){CARDV=null;render();}else if(STATSV){STATSV=false;render();}else if(TUT){TUT=false;render();}});
 /* ---------------- boot ---------------- */
 (function boot(){
  SND=lsGet("ma_snd","random");FAV=lsGet("ma_fav",{})||{};
