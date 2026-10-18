@@ -1,4 +1,5 @@
 /* Magical Outlet — pagina di manutenzione (Firebase): controlli, regole da copiare, pulizia partite, foto e livelli */
+var HIST=null,REGP=null;
 var CFG=window.FIREBASE_CONFIG,DB=null,CHECKS=[],RULES="",GAMES=null,IMGS=null,TIERS=null,MSG="",CONF=null,BUSYX=false,CONNECTED=null;
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function tkey(n){return String(n).replace(/[^A-Za-z0-9]/g,"_");}
@@ -31,6 +32,10 @@ async function runChecks(){
  catch(e){add("Controllo sulle foto",true,"Il database rifiuta ciò che non è una foto (come previsto).");}
  try{await wt(DB.ref("global/tiers/_check").set("D"));await wt(DB.ref("global/tiers/_check").remove());add("Livelli permanenti",true,"I livelli si possono salvare.");}
  catch(e){add("Livelli permanenti",false,errTxt(e),"Incolla le regole qui sotto e pubblicale.");}
+ try{await wt(DB.ref("global/history/_check").set({date:1,players:[{name:"x"}]}));await wt(DB.ref("global/history/_check").remove());add("Storico dei tornei",true,"I tornei finiti si possono salvare.");}
+ catch(e){add("Storico dei tornei",false,errTxt(e),"Mancano le regole per lo storico: incolla le nuove e pubblicale. Senza, i tornei finiti non vengono salvati.");}
+ try{await wt(DB.ref("global/players/_check").set({name:"x"}));await wt(DB.ref("global/players/_check").remove());add("Giocatori registrati",true,"I nomi nuovi si possono registrare.");}
+ catch(e){add("Giocatori registrati",false,errTxt(e),"Mancano le regole per i giocatori: incolla le nuove e pubblicale.");}
  BUSYX=false;draw();
 }
 async function loadRules(){try{var r=await fetch("database.rules.json?t="+Date.now());RULES=await r.text();}catch(e){RULES="Non riesco a leggere database.rules.json: "+errTxt(e);}draw();}
@@ -43,6 +48,8 @@ async function loadGames(){
 async function loadGlobal(){
  try{var a=await wt(DB.ref("global/images").get(),12000);IMGS=a.val()||{};}catch(e){IMGS=false;}
  try{var b=await wt(DB.ref("global/tiers").get(),12000);TIERS=b.val()||{};}catch(e){TIERS=false;}
+ try{var c=await wt(DB.ref("global/history").get(),12000);HIST=c.val()||{};}catch(e){HIST=false;}
+ try{var d=await wt(DB.ref("global/players").get(),12000);REGP=d.val()||{};}catch(e){REGP=false;}
  draw();
 }
 function ageTxt(t){if(!t)return "data sconosciuta";var d=(Date.now()-t)/86400000;if(d<1){var h=Math.round(d*24);return h<1?"meno di un'ora fa":h+" h fa";}return Math.floor(d)+" giorni fa";}
@@ -88,6 +95,21 @@ function draw(){
   h+='<p class="mut" style="margin:0">'+ch.length+' carte hanno un livello diverso da quello originale'+(ch.length?': '+ch.map(function(k){return esc(k.replace(/_/g," "))+' '+base[k]+'→'+TIERS[k];}).join(', '):'')+'.</p>';
   h+='<div class="row"><button type="button" class="btn sm alt" data-act="tierreset"'+(ch.length?'':' disabled')+'>'+(CONF==="tiers"?'Tocca ancora: ripristino':'Ripristina i livelli originali')+'</button></div>';}
  h+='</section>';
+ // 6 storico
+ h+='<section class="st stack" style="gap:6px"><h2 class="t" style="font-size:28px">6 · Storico dei tornei</h2>';
+ if(HIST===null)h+='<p class="mut" style="margin:0">Carico…</p>';
+ else if(HIST===false)h+='<p class="mut" style="margin:0">Non riesco a leggere lo storico: aggiorna le regole.</p>';
+ else{var hl=Object.keys(HIST).map(function(k){var x=HIST[k]||{};x.id=k;return x;}).sort(function(a,b){return (b.date||0)-(a.date||0);});
+  h+='<p class="mut" style="margin:0">'+hl.length+' tornei salvati. Cancella quelli di prova: spariscono anche dalle statistiche.</p>';
+  hl.forEach(function(x){var w=(x.players||[]).filter(function(p){return p.pos===1;})[0];h+='<div class="gm"><span class="grow"><b>'+esc(new Date(x.date||0).toLocaleDateString("it-IT"))+'</b> · '+((x.players||[]).length)+' giocatori'+(w?' · vince '+esc(w.name)+' ('+w.p+' pt)':'')+'</span><button type="button" class="btn sm alt" data-act="delhist" data-c="'+esc(x.id)+'">'+(CONF==="h"+x.id?'Tocca ancora: cancello':'Cancella')+'</button></div>';});}
+ h+='</section>';
+ // 7 giocatori
+ h+='<section class="st stack" style="gap:6px"><h2 class="t" style="font-size:28px">7 · Giocatori registrati</h2>';
+ if(REGP===null)h+='<p class="mut" style="margin:0">Carico…</p>';
+ else if(REGP===false)h+='<p class="mut" style="margin:0">Non riesco a leggere i giocatori: aggiorna le regole.</p>';
+ else{var rk=Object.keys(REGP);h+='<p class="mut" style="margin:0">Luigi, Riccardo, Mirko, Simone, Luca e Fabio ci sono sempre. Qui sotto i nomi aggiunti ('+rk.length+'). Togliere un nome non cancella i suoi tornei.</p>';
+  rk.forEach(function(k){h+='<div class="gm"><b class="grow">'+esc((REGP[k]||{}).name||k)+'</b><button type="button" class="btn sm alt" data-act="delplayer" data-c="'+esc(k)+'">'+(CONF==="p"+k?'Tocca ancora: tolgo':'Togli')+'</button></div>';});}
+ h+='</section>';
  h+='<p class="mut" style="text-align:center">Pagina riservata alla manutenzione: non ha password, quindi non condividerne il link.</p>';
  a.innerHTML=h;
 }
@@ -97,11 +119,13 @@ document.getElementById("app").addEventListener("click",async function(ev){
  try{
  if(a==="check"){runChecks();return;}
  if(a==="reloadgames"){GAMES=null;draw();loadGames();return;}
- if(a==="reloadglobal"){IMGS=null;TIERS=null;draw();loadGlobal();return;}
+ if(a==="reloadglobal"){IMGS=null;TIERS=null;HIST=null;REGP=null;draw();loadGlobal();return;}
  if(a==="copy"){var ta=document.getElementById("rules");var ok=false;try{await navigator.clipboard.writeText(RULES);ok=true;}catch(e){try{ta.removeAttribute("readonly");ta.focus();ta.select();ta.setSelectionRange(0,999999);ok=document.execCommand("copy");ta.setAttribute("readonly","");}catch(x){}}
   MSG=ok?"Regole copiate. Ora aprile su Firebase e incolla.":"Non riesco a copiare da solo: tieni premuto nel riquadro, scegli Seleziona tutto e poi Copia.";draw();return;}
  if(a==="delgame"){var c=t.getAttribute("data-c");if(CONF!=="g"+c){ask("g"+c);return;}CONF=null;await wt(DB.ref("games/"+c).remove());MSG="Partita "+c+" cancellata.";GAMES=GAMES.filter(function(g){return g.code!==c;});draw();return;}
  if(a==="delold"){if(CONF!=="old"){ask("old");return;}CONF=null;var del=GAMES.filter(function(g){return !g.created||(Date.now()-g.created)>7*86400000;});for(var i=0;i<del.length;i++)await wt(DB.ref("games/"+del[i].code).remove());MSG=del.length+" partite cancellate.";loadGames();return;}
+ if(a==="delhist"){var hc=t.getAttribute("data-c");if(CONF!=="h"+hc){ask("h"+hc);return;}CONF=null;await wt(DB.ref("global/history/"+hc).remove());delete HIST[hc];MSG="Torneo tolto dallo storico.";draw();return;}
+ if(a==="delplayer"){var pc=t.getAttribute("data-c");if(CONF!=="p"+pc){ask("p"+pc);return;}CONF=null;await wt(DB.ref("global/players/"+pc).remove());delete REGP[pc];MSG="Giocatore tolto.";draw();return;}
  if(a==="delimgs"){if(CONF!=="imgs"){ask("imgs");return;}CONF=null;await wt(DB.ref("global/images").remove());IMGS={};MSG="Foto tolte.";draw();return;}
  if(a==="tierreset"){if(CONF!=="tiers"){ask("tiers");return;}CONF=null;var m={};Core.parseRoster(DEF).forEach(function(x){m[tkey(x.n)]=x.t||"D";});await wt(DB.ref("global/tiers").set(m));TIERS=m;MSG="Livelli ripristinati.";draw();return;}
  }catch(e){MSG="Non riuscito: "+errTxt(e)+(/permesso/.test(errTxt(e))?". Aggiorna le regole (punto 2).":"");draw();}

@@ -6,8 +6,9 @@ App per il torneo «Magical Outlet» (varianti da torneo di Magical Athlete): og
 - Sempre **4 gare**. Punti 1°/2°: gara 1 **3/1**, gara 2 **4/2**, gara 3 **4/2**, gara 4 **5/3**; bronzo (+1) dal telefono per stelle e poteri.
 - **Pole position** (a caso): chi parte nella gara 1, chi sceglie per primo il racer della gara 1, chi comincia il draft.
 - **Draft comune** prima delle gare: 5 giri. A ogni giro si rivelano N+1 carte (N = giocatori) e se ne prende una a testa in senso orario; il giro dopo comincia il giocatore successivo. La carta avanzata si scarta. 5 carte a testa.
-- **Gara 1**: si sceglie il racer in senso orario dal giocatore estratto; parte quello estratto in pole.
-- **Gare 2–4**: sceglie per primo chi ha più punti, poi in ordine di punteggio (pari: meno rutti e scoregge, poi livello della carta usata nella gara prima, poi caso). Poi **l'ultimo in classifica sceglie chi parte**.
+- **Prima chi parte, poi il racer.** Gara 1: parte il giocatore estratto in pole (visibile già durante il draft); si sceglie il racer in senso orario dal giocatore estratto. Gare 2–4: l'ultimo in classifica decide chi parte, poi si sceglie il racer da chi ha più punti (pari: meno rutti e scoregge, poi livello della carta usata nella gara prima, poi caso).
+- **Squadre**: finito il draft, ognuno vede la sua squadra di 5 racer, la media dei livelli e la sua percentuale di vittorie. Toccando il nome di un racer si legge l'abilità.
+- **Giocatori e storico**: Luigi, Riccardo, Mirko, Simone, Luca e Fabio sono già in elenco; un nome nuovo viene registrato. Ogni torneo finito si salva nello storico (`global/history`) con classifica, team e racer: da lì le statistiche (tornei, vittorie, % vittorie, podi, punti medi, gare vinte).
 - Ogni giocatore sceglie il **nome del team** quando entra (si cambia in sala d'attesa).
 - **Foto delle carte**: dal tablet, Carte → «Aggiungi foto». Le immagini vengono rimpicciolite e salvate nel vostro Firebase (`global/images`).
 - **Livelli che cambiano**: a fine gara la carta del 1° sale di un livello (max S), quella dell'ultimo scende di uno (min D); ultimo a pari merito: sorteggio. I cambi di livello sono permanenti: valgono anche per le partite successive (si possono ripristinare dalle Impostazioni).
@@ -21,7 +22,7 @@ App per il torneo «Magical Outlet» (varianti da torneo di Magical Athlete): og
 
 ## Configurazione
 - `config.js`: configurazione web del progetto Firebase (Realtime Database).
-- `database.rules.json`: regole da incollare in Firebase → Realtime Database → Regole.
+- `database.rules.json`: regole da incollare in Firebase → Realtime Database → Regole. Si fa comodamente da telefono con `admin.html` (link «Manutenzione» in fondo alla home): controllo dello stato, copia delle regole, pulizia di partite, storico, giocatori, foto e livelli.
 - Senza configurazione l'app funziona in modalità prova (solo schede dello stesso browser).
 
 ## Suoni

@@ -20,6 +20,20 @@
         "$card": {
           ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length < 300000"
         }
+      },
+      "players": {
+        ".read": true,
+        ".write": true,
+        "$k": {
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 24"
+        }
+      },
+      "history": {
+        ".read": true,
+        ".write": true,
+        "$id": {
+          ".validate": "newData.hasChildren(['date','players'])"
+        }
       }
     }
   }
