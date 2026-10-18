@@ -56,7 +56,35 @@ async function loadGlobal(){
 }
 function oldOk(g){return (!g.created||(Date.now()-g.created)>7*86400000)&&(!g.players||histByCode(g.code));}
 function nk(n){return Core.nameKey(n);}
-function knownNames(){var seen={},out=[];function add(n){n=String(n||"").trim();if(!n||seen[nk(n)])return;seen[nk(n)]=1;out.push(n);}DEFPLAYERS.forEach(add);Object.keys(REGP||{}).forEach(function(k){add((REGP[k]||{}).name);});Object.keys(HIST||{}).forEach(function(k){((HIST[k]||{}).players||[]).forEach(function(p){add(p.name);});});return out;}
+function knownNames(){var seen={},out=[];function add(n){n=String(n||"").trim();if(!n||seen[nk(n)])return;seen[nk(n)]=1;out.push(n);}DEFPLAYERS.forEach(add);Object.keys(REGP||{}).forEach(function(k){add((REGP[k]||{}).name);});Object.keys(HIST||{}).forEach(function(k){((HIST[k]||{}).players||[]).forEach(function(p){Core.members(p.name).forEach(add);});});return out;}
+var ALIAS={mirco:"Mirko"};
+function normName(n){n=String(n||"").trim();var k=nk(n);if(ALIAS[k])return ALIAS[k];var m=knownNames().filter(function(x){return nk(x)===k;})[0];return m||(n.charAt(0).toUpperCase()+n.slice(1));}
+function normSeat(n){return Core.members(n).map(normName).join(" / ");}
+async function registerNames(list){for(var i=0;i<list.length;i++){var ms=Core.members(list[i]);for(var j=0;j<ms.length;j++){var rk=nk(ms[j]);if(DEFPLAYERS.every(function(x){return nk(x)!==rk;})&&!(REGP||{})[rk]){try{await wt(DB.ref("global/players/"+rk).set({name:ms[j],t:Date.now()}));(REGP=REGP||{})[rk]={name:ms[j]};}catch(e){}}}}}
+/* ---- importazione di risultati scritti a mano ---- */
+var IMPTXT="Magical Athlete torneo\nluca 10\nLuigi 10\nRiccardo 3\nsimone 39\nmirco 8\n\nMagical Athlete torneo\nLuca 9\nRiccardo 11\nLuigi 8\nMirco 9\nSimone 15\n\nMagical Athlete\nStefano 5\nCostanzo 5\nLuca 6\nSimone 12\nLuigi/fabio 3\nRiccardo 7",IMP=null;
+function parseImport(txt){
+ var blocks=[],cur=null;String(txt||"").split(/\n/).forEach(function(line){var l=line.trim();if(!l){cur=null;return;}
+  var m=l.match(/^(.+?)[\s:=-]+(-?\d+)\s*(pt|punti)?$/i);
+  if(!m||/^magical/i.test(l)){cur={rows:[]};blocks.push(cur);return;}
+  if(!cur){cur={rows:[]};blocks.push(cur);}cur.rows.push({name:normSeat(m[1]),p:parseInt(m[2],10)});});
+ blocks=blocks.filter(function(b){return b.rows.length>=2;});
+ blocks.forEach(function(b){b.rows.sort(function(x,y){return y.p-x.p;});});
+ return blocks;
+}
+function guessGame(b,used){var best=null,bs=0;(GAMES||[]).forEach(function(g){if(!g.players||used[g.code])return;var names=suggestFromGame(g.code).map(function(r){return nk(normName(r.name));});var bk=[];b.rows.forEach(function(r){Core.members(r.name).forEach(function(m){bk.push(nk(m));});});
+ var ov=bk.filter(function(k){return names.indexOf(k)>=0;}).length/Math.max(bk.length,names.length);if(ov>bs){bs=ov;best=g;}});return bs>=0.5?best:null;}
+function prepImport(){var bl=parseImport(IMPTXT),used={};IMP=bl.map(function(b,i){var g=guessGame(b,used);if(g)used[g.code]=1;return {rows:b.rows,code:g?g.code:"",date:isoDay(g?g.created:(Date.now()-(bl.length-i)*7*864e5))};});draw();}
+function impBox(){
+ var h='<section class="st stack" style="gap:8px"><h2 class="t" style="font-size:28px">8 · Importa risultati</h2><p class="mut" style="margin:0">Incolla i risultati scritti a mano: un torneo per blocco, una riga per giocatore («Nome punti»). Due nomi con «/» (es. Luigi/Fabio) condividono il posto: il risultato vale per entrambi.</p>';
+ h+='<textarea class="code" id="imptxt" style="min-height:160px">'+esc(IMPTXT)+'</textarea><div class="row"><button type="button" class="btn alt" data-act="impprev">Leggi i risultati</button></div>';
+ if(IMP){if(!IMP.length)h+='<p class="mut">Non trovo tornei: controlla il formato.</p>';
+  IMP.forEach(function(t,i){h+='<div class="edbox stack" style="gap:6px"><div class="row"><b class="grow">Torneo '+(i+1)+' · '+t.rows.length+' posti</b><label style="margin:0;display:flex;gap:6px;align-items:center">Data <input type="date" data-imp-d="'+i+'" value="'+esc(t.date)+'" style="width:auto"></label></div>'+
+   '<label style="margin:0;display:flex;gap:6px;align-items:center;flex-wrap:wrap">Partita <select data-imp-c="'+i+'"><option value="">nessuna (torneo a parte)</option>'+(GAMES||[]).filter(function(g){return g.players;}).map(function(g){return '<option value="'+esc(g.code)+'"'+(g.code===t.code?' selected':'')+'>'+esc(g.code)+' · '+g.players+' giocatori · '+esc(ageTxt(g.created))+(histByCode(g.code)?' (sostituisce lo storico)':'')+'</option>';}).join("")+'</select></label>'+
+   t.rows.map(function(r,q){var tie=t.rows.filter(function(x){return x.p===r.p;}).length>1;return '<div class="row" style="gap:8px"><b style="width:28px">'+(q+1)+'°</b><b class="grow">'+esc(r.name)+'</b><b>'+r.p+' pt</b>'+(tie?'<span class="mut">pari</span>':'')+'</div>';}).join("")+'</div>';});
+  if(IMP.length)h+='<button type="button" class="btn big acc" data-act="impsave">Salva '+IMP.length+' tornei e aggiorna lo S.K.U.L.O.</button>';}
+ return h+'</section>';
+}
 function histByCode(code){var id=null;Object.keys(HIST||{}).forEach(function(k){if(HIST[k]&&HIST[k].code===code)id=k;});return id;}
 function tierBonusRaw(st,card){var t="D";(st.roster||[]).forEach(function(x){if(x.n===card)t=x.t||"D";});return (t==="S"||t==="A")?2:(t==="D"?0:1);}
 function suggestFromGame(code){
@@ -144,6 +172,7 @@ function draw(){
  else{var rk=Object.keys(REGP);h+='<p class="mut" style="margin:0">Luigi, Riccardo, Mirko, Simone, Luca e Fabio ci sono sempre. Qui sotto i nomi aggiunti ('+rk.length+'). Togliere un nome non cancella i suoi tornei.</p>';
   rk.forEach(function(k){h+='<div class="gm gl"><b class="grow">'+esc((REGP[k]||{}).name||k)+'</b><button type="button" class="btn sm alt" data-act="delplayer" data-c="'+esc(k)+'">'+(CONF==="p"+k?'Tocca ancora: tolgo':'Togli')+'</button></div>';});}
  h+='</section>';
+ h+=impBox();
  h+='<p class="mut" style="text-align:center">Pagina riservata alla manutenzione: non ha password, quindi non condividerne il link.</p>';
  a.innerHTML=h;
 }
@@ -164,6 +193,15 @@ document.getElementById("app").addEventListener("click",async function(ev){
  if(a==="delhist"){var hc=t.getAttribute("data-c");if(CONF!=="h"+hc){ask("h"+hc);return;}CONF=null;await wt(DB.ref("global/history/"+hc).remove());delete HIST[hc];await recalcElo();ELODIRTY=false;MSG="Torneo tolto dallo storico. S.K.U.L.O. ricalcolato.";draw();return;}
  if(a==="recalc"){await recalcElo();ELODIRTY=false;var er=Core.elo(Object.keys(HIST||{}).map(function(k){var x=HIST[k];x.id=k;return x;})).ratings;MSG="S.K.U.L.O. aggiornato: "+Object.keys(er).map(function(k){return er[k];}).sort(function(a,b){return b.r-a.r;}).map(function(x){return x.name+" "+x.r;}).join(" · ");draw();return;}
  if(a==="delplayer"){var pc=t.getAttribute("data-c");if(CONF!=="p"+pc){ask("p"+pc);return;}CONF=null;await wt(DB.ref("global/players/"+pc).remove());delete REGP[pc];MSG="Giocatore tolto.";draw();return;}
+ if(a==="impprev"){var it=document.getElementById("imptxt");if(it)IMPTXT=it.value;prepImport();return;}
+ if(a==="impsave"){if(!IMP||!IMP.length)return;document.querySelectorAll("[data-imp-d]").forEach(function(e){IMP[+e.getAttribute("data-imp-d")].date=e.value;});document.querySelectorAll("[data-imp-c]").forEach(function(e){IMP[+e.getAttribute("data-imp-c")].code=e.value;});
+  var codes={},dupc=false;IMP.forEach(function(t){if(t.code){if(codes[t.code])dupc=true;codes[t.code]=1;}});if(dupc){MSG="Due tornei puntano alla stessa partita: cambia la scelta.";draw();return;}
+  for(var ii=0;ii<IMP.length;ii++){var tt=IMP[ii],gg2=(GAMES||[]).filter(function(g){return g.code===tt.code;})[0],hid2=tt.code?histByCode(tt.code):null,dt2=new Date(tt.date+"T20:00:00").getTime();
+   var id2=hid2||(tt.code?"g_"+tt.code+"_"+((gg2&&gg2.created)||dt2):"m_"+dt2+"_"+ii);
+   var pos=0,lastP=null;var ent2={date:isNaN(dt2)?Date.now():dt2,code:tt.code||"",races:[],manual:true,players:tt.rows.map(function(r,q){return {name:r.name,team:"",pos:q+1,p:r.p,rw:0,b:0,f:0,fb:0,cards:[],last:""};})};
+   await wt(DB.ref("global/history/"+id2).set(ent2));HIST[id2]=ent2;await registerNames(tt.rows.map(function(r){return r.name;}));}
+  await recalcElo();ELODIRTY=false;var er2=Core.elo(Object.keys(HIST||{}).map(function(k){var x=HIST[k];x.id=k;return x;})).ratings;
+  MSG=IMP.length+" tornei salvati. S.K.U.L.O.: "+Object.keys(er2).map(function(k){return er2[k];}).sort(function(a,b){return b.r-a.r;}).map(function(x){return x.name+" "+x.r;}).join(" · ");IMP=null;draw();window.scrollTo(0,0);return;}
  if(a==="delempty"){if(CONF!=="empty"){ask("empty");return;}CONF=null;var em=GAMES.filter(function(g){return !g.players;});for(var j=0;j<em.length;j++)await wt(DB.ref("games/"+em[j].code).remove());MSG=em.length+" partite vuote cancellate.";loadGames();return;}
  if(a==="edgame"){var gc=t.getAttribute("data-c"),gg=GAMES.filter(function(x){return x.code===gc;})[0]||{},hid=histByCode(gc);
   if(hid){var he=HIST[hid];openEditor("g"+gc,hid,gc,he.date,(he.players||[]).slice().sort(function(a,b){return (a.pos||99)-(b.pos||99);}));}
@@ -175,13 +213,13 @@ document.getElementById("app").addEventListener("click",async function(ev){
  if(a==="edadd"){syncEdit();EDIT.rows.push({name:"",team:"",p:0});draw();return;}
  if(a==="edsave"){syncEdit();var rows=EDIT.rows.filter(function(r){return String(r.name).trim();});
   if(rows.length<2){MSG="Servono almeno 2 giocatori.";draw();return;}
-  var names={},dup=false;rows.forEach(function(r){var k=nk(r.name.trim());if(names[k])dup=true;names[k]=1;});if(dup){MSG="Lo stesso nome compare due volte.";draw();return;}
-  var kn=knownNames();rows.forEach(function(r){r.name=r.name.trim();var m=kn.filter(function(x){return nk(x)===nk(r.name);})[0];if(m)r.name=m;});
+  var names={},dup=false;rows.forEach(function(r){Core.members(r.name).forEach(function(m){var k=nk(m);if(names[k])dup=true;names[k]=1;});});if(dup){MSG="Lo stesso nome compare due volte.";draw();return;}
+  rows.forEach(function(r){r.name=normSeat(r.name);});
   var old=HIST[EDIT.id]||{},dt=new Date(EDIT.date+"T20:00:00").getTime();
   var ent={date:isNaN(dt)?(old.date||Date.now()):dt,code:EDIT.code||old.code||"",tid:old.tid||"",races:old.races||[],manual:true,
    players:rows.map(function(r,q){var o=(old.players||[]).filter(function(p){return nk(p.name)===nk(r.name);})[0]||{};return {name:r.name,team:r.team||o.team||"",pos:q+1,p:r.p,rw:o.rw||0,b:o.b||0,f:o.f||0,fb:o.fb||0,cards:o.cards||[],last:o.last||""};})};
   await wt(DB.ref("global/history/"+EDIT.id).set(ent));HIST[EDIT.id]=ent;
-  for(var q=0;q<rows.length;q++){var rk=nk(rows[q].name);if(DEFPLAYERS.every(function(x){return nk(x)!==rk;})&&!(REGP||{})[rk]){try{await wt(DB.ref("global/players/"+rk).set({name:rows[q].name,t:Date.now()}));(REGP=REGP||{})[rk]={name:rows[q].name};}catch(e){}}}
+  await registerNames(rows.map(function(r){return r.name;}));
   EDIT=null;ELODIRTY=true;MSG="Classifica salvata nello storico. Ora tocca «Aggiorna lo S.K.U.L.O.».";draw();return;}
  if(a==="delimgs"){if(CONF!=="imgs"){ask("imgs");return;}CONF=null;await wt(DB.ref("global/images").remove());IMGS={};MSG="Foto tolte.";draw();return;}
  if(a==="tierreset"){if(CONF!=="tiers"){ask("tiers");return;}CONF=null;var m={};Core.parseRoster(DEF).forEach(function(x){m[tkey(x.n)]=x.t||"D";});await wt(DB.ref("global/tiers").set(m));TIERS=m;MSG="Livelli ripristinati.";draw();return;}

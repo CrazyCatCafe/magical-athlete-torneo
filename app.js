@@ -115,20 +115,20 @@ function knownPlayers(){
  var seen={},out=[];function add(n){n=String(n||"").trim();if(!n)return;var k=nameKey(n);if(seen[k])return;seen[k]=1;out.push(n);}
  DEFPLAYERS.forEach(add);
  var extra=[];Object.keys(REG).forEach(function(k){if(REG[k]&&REG[k].name)extra.push(REG[k].name);});
- Object.keys(HIST).forEach(function(id){(HIST[id]&&HIST[id].players||[]).forEach(function(p){extra.push(p.name);});});
+ Object.keys(HIST).forEach(function(id){(HIST[id]&&HIST[id].players||[]).forEach(function(p){Core.members(p.name).forEach(function(m){extra.push(m);});});});
  extra.sort(function(a,b){return a.localeCompare(b,"it");}).forEach(add);return out;
 }
 function histList(){return Object.keys(HIST).map(function(id){var h=HIST[id];if(h)h.id=id;return h;}).filter(function(h){return h&&h.players&&h.players.length;}).sort(function(a,b){return (b.date||0)-(a.date||0);});}
 function playerStats(name){
  var k=nameKey(name),st={name:name,t:0,w:0,pod:0,pts:0,races:0,rw:0,last:null};
- histList().forEach(function(h){h.players.forEach(function(p){if(nameKey(p.name)!==k)return;st.t++;st.pts+=p.p||0;if(st.best===undefined||(p.p||0)>st.best)st.best=p.p||0;if(p.pos===1)st.w++;if(p.pos<=3)st.pod++;st.races+=(h.races||[]).length;st.rw+=p.rw||0;if(!st.last||h.date>st.last)st.last=h.date;});});
+ histList().forEach(function(h){h.players.forEach(function(p){if(!Core.members(p.name).some(function(m){return nameKey(m)===k;}))return;st.t++;st.pts+=p.p||0;if(st.best===undefined||(p.p||0)>st.best)st.best=p.p||0;if(p.pos===1)st.w++;if(p.pos<=3)st.pod++;st.races+=(h.races||[]).length;st.rw+=p.rw||0;if(!st.last||h.date>st.last)st.last=h.date;});});
  st.wr=st.t?Math.round(st.w/st.t*100):null;st.avg=st.t?Math.round(st.pts/st.t*10)/10:null;st.rwr=st.races?Math.round(st.rw/st.races*100):null;return st;
 }
 var ELOC=null,ELOH=null,ELOTIP="";
 function eloNow(){if(ELOH!==HIST||!ELOC){ELOH=HIST;ELOC=Core.elo(histList());}return ELOC;}
 function eloOf(name){var x=eloNow().ratings[nameKey(name)];return x?x.r:Core.ELO.start;}
 function eloTxt(d){return (d>0?'+':(d<0?'−':'±'))+Math.abs(d);}
-function eloInfo(tid,name){var m=eloNow().per[tid];return m?m[nameKey(name)]:null;}
+function eloInfo(tid,name){var m=eloNow().per[tid];return m?m[nameKey(Core.members(name)[0]||name)]:null;}
 var ECOL=["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#008300","#6250d6","#e34948"];
 function eloChart(){
  var E=eloNow(),L=E.list;if(!L.length)return '';

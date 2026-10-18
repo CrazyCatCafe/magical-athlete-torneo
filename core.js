@@ -26,20 +26,25 @@ var Core={
  K doppio nei primi 3 tornei di ciascuno. Si calcola in ordine di data su tutto lo storico. */
 Core.ELO={start:1500,k:24,prov:3};
 Core.nameKey=function(n){return String(n||"x").toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,24)||"x";};
+/* un posto può essere condiviso da due giocatori: "Luigi/Fabio" -> entrambi prendono il risultato del posto */
+Core.members=function(name){return String(name||"").split("/").map(function(x){return x.trim();}).filter(Boolean);};
 Core.elo=function(hist){
  var E=Core.ELO,R={},per={},series={};
  var list=(hist||[]).filter(function(h){return h&&h.players&&h.players.length>1;}).slice().sort(function(a,b){return (a.date||0)-(b.date||0);});
  list.forEach(function(h,ti){
-  var ps=h.players.map(function(p){var k=Core.nameKey(p.name);if(!R[k])R[k]={name:p.name,r:E.start,n:0};return {k:k,p:+p.p||0,pos:+p.pos||0};}),n=ps.length,d={};
-  ps.forEach(function(a){var s=0;ps.forEach(function(b){if(a===b)return;var ex=1/(1+Math.pow(10,(R[b.k].r-R[a.k].r)/400));var res=a.p===b.p?0.5:((a.pos&&b.pos)?(a.pos<b.pos?1:0):(a.p>b.p?1:0));s+=res-ex;});
-   var K=E.k*(R[a.k].n<E.prov?2:1);d[a.k]=K/(n-1)*s;});
-  per[h.id||("t"+ti)]={};
-  ps.forEach(function(a){var b0=R[a.k].r;R[a.k].r=b0+d[a.k];R[a.k].n++;R[a.k].name=h.players.filter(function(p){return Core.nameKey(p.name)===a.k;})[0].name;
-   per[h.id||("t"+ti)][a.k]={b:Math.round(b0),a:Math.round(R[a.k].r),d:Math.round(R[a.k].r)-Math.round(b0)};
-   (series[a.k]=series[a.k]||[]).push({t:ti,date:h.date,r:Math.round(R[a.k].r),d:Math.round(R[a.k].r)-Math.round(b0)});});
+  var ps=h.players.map(function(p){var ms=Core.members(p.name);if(!ms.length)ms=["?"];var ks=ms.map(function(m){var k=Core.nameKey(m);if(!R[k])R[k]={name:m,r:E.start,n:0};R[k].name=m;return k;});
+   return {ks:ks,p:+p.p||0,pos:+p.pos||0};}),n=ps.length;
+  function sr(a){return a.ks.reduce(function(x,k){return x+R[k].r;},0)/a.ks.length;}
+  function sn(a){return Math.min.apply(null,a.ks.map(function(k){return R[k].n;}));}
+  var d=ps.map(function(a){var s=0,ra=sr(a);ps.forEach(function(b){if(a===b)return;var ex=1/(1+Math.pow(10,(sr(b)-ra)/400));var res=a.p===b.p?0.5:((a.pos&&b.pos)?(a.pos<b.pos?1:0):(a.p>b.p?1:0));s+=res-ex;});
+   return E.k*(sn(a)<E.prov?2:1)/(n-1)*s;});
+  var id=h.id||("t"+ti);per[id]={};
+  ps.forEach(function(a,q){a.ks.forEach(function(k){var b0=R[k].r;R[k].r=b0+d[q];R[k].n++;
+   per[id][k]={b:Math.round(b0),a:Math.round(R[k].r),d:Math.round(R[k].r)-Math.round(b0)};
+   (series[k]=series[k]||[]).push({t:ti,date:h.date,r:Math.round(R[k].r),d:Math.round(R[k].r)-Math.round(b0)});});});
  });
  Object.keys(R).forEach(function(k){R[k].r=Math.round(R[k].r);});
  return {ratings:R,per:per,series:series,list:list};
 };
 /* scrive l'Elo dentro ogni torneo (prima/dopo/variazione) */
-Core.eloAnnotate=function(hist){var e=Core.elo(hist);e.list.forEach(function(h,ti){var m=e.per[h.id||("t"+ti)]||{};h.players.forEach(function(p){var x=m[Core.nameKey(p.name)];if(x)p.elo=x;});});return e;};
+Core.eloAnnotate=function(hist){var e=Core.elo(hist);e.list.forEach(function(h,ti){var m=e.per[h.id||("t"+ti)]||{};h.players.forEach(function(p){var x=m[Core.nameKey(Core.members(p.name)[0]||p.name)];if(x)p.elo=x;});});return e;};
