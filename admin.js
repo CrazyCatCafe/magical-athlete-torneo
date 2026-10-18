@@ -135,8 +135,25 @@ document.getElementById("app").addEventListener("click",async function(ev){
  if(a==="tierreset"){if(CONF!=="tiers"){ask("tiers");return;}CONF=null;var m={};Core.parseRoster(DEF).forEach(function(x){m[tkey(x.n)]=x.t||"D";});await wt(DB.ref("global/tiers").set(m));TIERS=m;MSG="Livelli ripristinati.";draw();return;}
  }catch(e){MSG="Non riuscito: "+errTxt(e)+(/permesso/.test(errTxt(e))?". Aggiorna le regole (punto 2).":"");draw();}
 });
-(function boot(){
+/* ---- codice d'accesso ---- */
+var PINH="9f08015a017fe9e7aa8853f36dd4a6c0c0271823fef04838e30f5b33b4dea5d7",PINERR="";
+async function sha(t){var b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return Array.prototype.map.call(new Uint8Array(b),function(x){return ("0"+x.toString(16)).slice(-2);}).join("");}
+function unlocked(){try{return sessionStorage.getItem("ma_admin")==="1";}catch(e){return false;}}
+function drawPin(){
+ document.getElementById("app").innerHTML='<div class="row"><span class="logo t">Magical Outlet</span><span class="pill">Manutenzione</span><span class="grow"></span><a class="btn sm alt" href="./">← Torna al gioco</a></div>'+
+  '<form class="st stack" id="pinf" style="max-width:420px;align-self:center;width:100%;gap:12px"><h2 class="t" style="font-size:28px">Codice d\'accesso</h2><label for="pin" style="margin:0">Inserisci il codice di 4 cifre</label><input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" style="font:400 34px/1 \'Lilita One\',sans-serif;letter-spacing:.4em;text-align:center">'+
+  (PINERR?'<div style="font-weight:900;color:var(--red)" role="alert">'+esc(PINERR)+'</div>':'')+'<button type="submit" class="btn big acc">Entra</button></form>';
+ var i=document.getElementById("pin");if(i)i.focus();
+}
+function start(){
  try{if(CFG&&window.firebase){firebase.apps.length||firebase.initializeApp(CFG);DB=firebase.database();}}catch(e){}
  draw();loadRules();
  if(DB){runChecks().then(function(){loadGames();loadGlobal();});}
-})();
+}
+document.getElementById("app").addEventListener("submit",async function(ev){
+ if(ev.target.id!=="pinf")return;ev.preventDefault();var v=(document.getElementById("pin").value||"").trim(),ok=false;
+ try{ok=(await sha("magical-outlet:"+v))===PINH;}catch(e){ok=false;}
+ if(ok){try{sessionStorage.setItem("ma_admin","1");}catch(e){}PINERR="";start();}
+ else{PINERR="Codice sbagliato.";drawPin();}
+});
+(function boot(){if(unlocked())start();else drawPin();})();
