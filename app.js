@@ -601,21 +601,32 @@ function vSet(){
 function statsBtn(){return '<button type="button" class="btn big alt tutbtn" data-act="stats"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Storico e statistiche</button>';}
 function vCardModal(){return '<div class="tut cardmodal" role="dialog" aria-modal="true" aria-label="'+esc(CARDV)+'" data-act="cardclose"><div class="cm-in">'+aCard(CARDV,{btn:'<button type="button" class="btn" data-act="cardclose">Chiudi</button>'})+'</div></div>';}
 function fmtDate(t){try{return new Date(t).toLocaleDateString("it-IT",{day:"numeric",month:"short",year:"numeric"});}catch(e){return "";}}
+var STATTAB="classifica",STATOPEN=null;
 function vStats(){
- var H=histList(),names=knownPlayers().filter(function(n){return playerStats(n).t>0;});
- var rows=names.map(function(n){var x=playerStats(n);x.elo=eloOf(n);return x;}).sort(function(a,b){return b.elo-a.elo||b.w-a.w||(b.avg||0)-(a.avg||0);});
- var h='<div class="tut" role="dialog" aria-modal="true" aria-labelledby="st_t"><div class="ph stack" style="max-width:900px">';
- h+='<div class="row tuthead"><span class="logo t" id="st_t">Storico</span><span class="grow"></span><button type="button" class="btn sm" data-act="statsclose">Chiudi</button></div>';
+ var H=histList(),E=eloNow(),names=knownPlayers().filter(function(n){return playerStats(n).t>0;});
+ var rows=names.map(function(n){var x=playerStats(n);x.elo=eloOf(n);var ser=E.series[nameKey(n)]||[];x.last=ser.length?ser[ser.length-1].d:0;return x;}).sort(function(a,b){return b.elo-a.elo||b.w-a.w||(b.avg||0)-(a.avg||0);});
+ var h='<div class="tut statsv" role="dialog" aria-modal="true" aria-labelledby="st_t"><div class="ph stack" style="max-width:900px;gap:10px">';
+ h+='<div class="tuthead stack" style="gap:8px"><div class="row"><span class="logo t" id="st_t">Storico</span><span class="grow"></span><button type="button" class="btn sm" data-act="statsclose">Chiudi</button></div>'+
+  '<div class="seg" role="tablist">'+[["classifica","Classifica"],["grafico","Grafico"],["tornei","Tornei"]].map(function(t){return '<button type="button" role="tab" aria-selected="'+(STATTAB===t[0])+'" class="'+(STATTAB===t[0]?'on':'')+'" data-act="stattab" data-v="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div></div>';
  if(!H.length){h+='<div class="st"><p style="margin:0;font-weight:800">Ancora nessun torneo nello storico.</p><p class="mut" style="margin:6px 0 0">Ogni torneo finito viene salvato qui da solo, con data, classifica, team e racer usati.</p></div>';return h+'</div></div>';}
- h+=eloChart();
- h+='<div class="st"><div class="lbl">Classifica S.K.U.L.O. e statistiche</div><p class="mut" style="margin:2px 0 0;font-size:13px;font-style:italic">Supremazia Konquistata Usando Lanci Onesti</p><div class="stbl" role="table"><div class="sr sh" role="row"><span>Giocatore</span><span>S.K.U.L.O.</span><span>Tornei</span><span>Vinti</span><span>% vittorie</span><span>Podi</span><span>Punti medi</span><span>Record</span><span>Punti tot.</span><span>Gare vinte</span></div>'+
-  rows.map(function(x,q){return '<div class="sr" role="row"><span><b>'+(q+1)+'. '+esc(x.name)+'</b></span><span><b class="elo">'+x.elo+'</b></span><span>'+x.t+'</span><span>'+x.w+'</span><span><b>'+x.wr+'%</b></span><span>'+x.pod+'</span><span>'+String(x.avg).replace(".",",")+'</span><span>'+(x.best||0)+'</span><span>'+x.pts+'</span><span>'+(x.races?x.rw+' su '+x.races:'—')+'</span></div>';}).join("")+'</div></div>';
- var rc={};H.forEach(function(t){(t.races||[]).forEach(function(R){if(R.c1){rc[R.c1]=rc[R.c1]||{w:0};rc[R.c1].w++;}});});
- var top=Object.keys(rc).sort(function(a,b){return rc[b].w-rc[a].w;}).slice(0,8);
- if(top.length)h+='<div class="st"><div class="lbl">Racer che hanno vinto più gare</div><div class="row" style="gap:8px;margin-top:8px">'+top.map(function(c){return '<button type="button" class="pill cardpill" data-act="card" data-n="'+esc(c)+'" style="background:'+(TC[tierOf(c)]||'#e9e9f2')+'">'+esc(c)+' · '+rc[c].w+'</button>';}).join("")+'</div></div>';
- h+='<h2 class="t" style="font-size:28px;margin:6px 0 0">Tornei ('+H.length+')</h2>';
- h+=H.map(function(t){return '<div class="st"><div class="row"><span class="pill">'+esc(fmtDate(t.date))+'</span><span class="mut">'+t.players.length+' giocatori'+(t.code?' · '+esc(t.code):'')+'</span></div>'+
-  '<div class="stack" style="gap:4px;margin-top:10px">'+t.players.map(function(p){return '<div class="row" style="gap:8px"><b style="width:28px">'+p.pos+'°</b><b>'+esc(p.name)+'</b><span class="mut grow">'+esc(p.team||'')+'</span><b>'+p.p+' pt</b>'+(function(){var e=eloInfo(t.id,p.name);return e?'<span class="elod'+(e.d>0?' up':(e.d<0?' dn':''))+'">'+eloTxt(e.d)+'</span>':'';})()+'</div>';}).join("")+'</div></div>';}).join("");
+ if(STATTAB==="classifica"){
+  h+='<p class="mut" style="margin:0;font-weight:800;font-size:13px">S.K.U.L.O. · <i>Supremazia Konquistata Usando Lanci Onesti</i> · tocca un nome per i dettagli</p><div class="pcs">';
+  rows.forEach(function(x,q){var op=STATOPEN==="p"+x.name;
+   h+='<button type="button" class="pc'+(q===0?' first':'')+(op?' open':'')+'" data-act="statopen" data-n="p'+esc(x.name)+'" aria-expanded="'+op+'"><span class="rk">'+(q+1)+'</span><span class="nm">'+esc(x.name)+'</span><span class="sk">'+x.elo+(x.last?'<small class="'+(x.last<0?'dn':'')+'">'+eloTxt(x.last)+'</small>':'')+'</span>'+
+    '<span class="mini">'+x.t+(x.t===1?' torneo':' tornei')+' · '+x.w+(x.w===1?' vinto':' vinti')+' · media '+String(x.avg).replace(".",",")+'</span>'+
+    (op?'<span class="more"><span><b>'+x.wr+'%</b> vittorie</span><span><b>'+x.pod+'</b> podi</span><span>record <b>'+(x.best||0)+'</b></span><span><b>'+x.pts+'</b> punti tot.</span>'+(x.races?'<span>gare vinte <b>'+x.rw+'/'+x.races+'</b></span>':'')+'</span>':'')+'</button>';});
+  h+='</div>';
+ }else if(STATTAB==="grafico"){
+  h+=eloChart();
+  var rc={};H.forEach(function(t){(t.races||[]).forEach(function(R){if(R.c1){rc[R.c1]=rc[R.c1]||{w:0};rc[R.c1].w++;}});});
+  var top=Object.keys(rc).sort(function(a,b){return rc[b].w-rc[a].w;}).slice(0,8);
+  if(top.length)h+='<div class="st"><div class="lbl">Racer che hanno vinto più gare</div><div class="row" style="gap:8px;margin-top:8px">'+top.map(function(c){return '<button type="button" class="pill cardpill" data-act="card" data-n="'+esc(c)+'" style="background:'+(TC[tierOf(c)]||'#e9e9f2')+'">'+esc(c)+' · '+rc[c].w+'</button>';}).join("")+'</div></div>';
+ }else{
+  h+='<div class="pcs">'+H.map(function(t){var op=STATOPEN==="t"+t.id,ps=t.players.slice().sort(function(a,b){return (a.pos||99)-(b.pos||99);});
+   return '<button type="button" class="tcard'+(op?' open':'')+'" data-act="statopen" data-n="t'+esc(t.id)+'" aria-expanded="'+op+'"><span class="row" style="gap:8px"><b class="t" style="font-size:20px">'+esc(fmtDate(t.date))+'</b><span class="mut grow" style="font-weight:700;font-size:13px">'+t.players.length+' giocatori</span><span style="font-weight:900">'+(op?'⌄':'›')+'</span></span>'+
+    (op?'<span class="stack" style="gap:4px;margin-top:8px">'+ps.map(function(p){var e=eloInfo(t.id,p.name);return '<span class="row" style="gap:8px"><b style="width:28px">'+p.pos+'°</b><b class="grow" style="text-align:left">'+esc(p.name)+'</b><b>'+p.p+' pt</b>'+(e?'<span class="elod'+(e.d>0?' up':(e.d<0?' dn':''))+'">'+eloTxt(e.d)+'</span>':'')+'</span>';}).join("")+'</span>'
+     :'<span class="podl">'+ps.slice(0,3).map(function(p,q){return '<span class="'+["g","s","b"][q]+'">'+p.pos+'° '+esc(p.name)+' '+p.p+'</span>';}).join("")+'</span>')+'</button>';}).join("")+'</div>';
+ }
  return h+'</div></div>';
 }
 /* ---------------- tutorial ---------------- */
@@ -795,6 +806,8 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "cardclose":if(ev.target.closest(".cm-in")&&!ev.target.closest("button"))return;CARDV=null;render();return;
  case "stats":STATSV=true;render();try{var sx=document.querySelector(".tut");if(sx)sx.scrollTop=0;}catch(e){}return;
  case "statsclose":STATSV=false;render();return;
+ case "stattab":STATTAB=t.getAttribute("data-v");STATOPEN=null;render();try{document.querySelector(".tut").scrollTop=0;}catch(e){}return;
+ case "statopen":STATOPEN=STATOPEN===NM?null:NM;render();return;
  case "elotip":ELOTIP=NM||"";render();return;
  case "pickname":var fn=document.getElementById("f_name");if(fn){fn.value=NM;}document.querySelectorAll(".namechips .chip").forEach(function(c){c.classList.toggle("on",c.getAttribute("data-n")===NM);});return;
  case "delimg":BE.setImage(tkey(NM),null).then(function(){msg="Foto di "+NM+" tolta.";render();});return;

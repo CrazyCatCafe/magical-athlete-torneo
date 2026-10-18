@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=48">
+<link rel="stylesheet" href="style.css?v=50">
 <style>
 html,body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .wrap{max-width:760px;margin:0 auto}
@@ -34,14 +34,58 @@ textarea.code{width:100%;min-height:220px;font:700 13px/1.4 ui-monospace,Menlo,C
 .edrow .pos{width:30px;font-variant-numeric:tabular-nums}
 .edrow input{flex:1 1 80px;min-width:0;padding:8px}
 .edrow input.pts{flex:0 0 58px;text-align:right}
+
+/* v5: schede + barra fissa in basso */
+body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.wrap{gap:0!important}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);margin:-14px -16px 0;padding:12px 16px 10px;border-bottom:3px solid var(--ink)}
+.tabsx{display:flex;gap:6px;overflow-x:auto;margin-top:8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabsx::-webkit-scrollbar{display:none}
+.tabsx button{flex:0 0 auto;border:3px solid var(--ink);border-radius:99px;padding:7px 12px;font:800 15px Nunito,system-ui,sans-serif;background:#fff;color:var(--ink);cursor:pointer}
+.tabsx button.on{background:var(--ink);color:#fff}
+.tabsx button.ok::before{content:"✓ ";color:#0b7a3e}.tabsx button.on.ok::before{color:#6fe0a3}
+.tabsx button.ko::before{content:"! ";color:var(--red)}
+.mbody{display:flex;flex-direction:column;gap:10px;padding-top:12px}
+.foot{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;gap:8px;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));background:#fff;border-top:3px solid var(--ink)}
+.foot .btn{flex:1;min-height:52px}
+@media (min-width:800px){.foot{left:50%;right:auto;width:760px;transform:translateX(-50%);border:3px solid var(--ink);border-bottom:0;border-radius:18px 18px 0 0}}
+.tc{background:#fff;border:3px solid var(--ink);border-radius:16px;padding:10px 12px;box-shadow:3px 3px 0 var(--ink);min-width:0}
+.tc.open{background:var(--soft)}
+.tc .hd{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
+.hdb{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.tc .dt{font:400 20px/1.1 "Lilita One",sans-serif}
+.tc .gcode{font:400 22px/1 "Lilita One",sans-serif;letter-spacing:.06em;background:var(--yel);border:2px solid var(--ink);border-radius:10px;padding:4px 8px}
+.tc .meta{font:700 13px Nunito,system-ui,sans-serif;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.chev{margin-left:auto;font:900 20px Nunito,sans-serif}
+.podl{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.podl span{font:800 13px Nunito,system-ui,sans-serif;border:2px solid var(--ink);border-radius:99px;padding:3px 9px;background:var(--soft)}
+.podl span.g{background:#ffc83d}.podl span.s{background:#d9dee9}.podl span.b{background:#e8a46b}
+.edl{display:flex;flex-direction:column}
+.ed{display:grid;grid-template-columns:34px minmax(0,1fr) 62px 36px;gap:6px;align-items:center;padding:5px 0;border-top:2px dashed #c9cdf0}
+.ed:first-child{border-top:0}
+.ed .pos{font:900 16px Nunito,sans-serif;font-variant-numeric:tabular-nums}
+.ed .pos i{font-style:normal;color:var(--muted);margin-left:2px}
+.ed input{min-width:0;padding:8px 10px;border:2px solid var(--ink);border-radius:10px;font:800 16px Nunito,system-ui,sans-serif}
+.ed input.pts{text-align:right;font-variant-numeric:tabular-nums}
+.x{width:36px;height:36px;border:2px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);font:900 14px Nunito,sans-serif;cursor:pointer;flex:0 0 auto;padding:0;margin-left:auto}
+.chipx{border:2px solid var(--ink);border-radius:99px;padding:6px 12px;background:#fff;font:800 14px Nunito,system-ui,sans-serif;color:var(--ink);cursor:pointer}
+.chipx.yel{background:var(--yel)}
+.okp{display:inline-block;font:800 13px Nunito,sans-serif;color:#0b7a3e;border-radius:99px;padding:4px 10px;background:#e3f8ec}
+.fld{display:flex;flex-direction:column;border:3px solid var(--ink);border-radius:12px;padding:5px 10px;background:#fff;margin:0;min-width:0}
+.fld small{font:900 10px Nunito,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fld input,.fld select{border:0;padding:2px 0;font:800 16px Nunito,system-ui,sans-serif;background:transparent;min-height:0;width:100%}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.step{display:flex;align-items:center;gap:8px}.step b{font:400 22px "Lilita One",sans-serif}
+.dots{display:flex;gap:5px;margin-left:auto}.dots i{width:10px;height:10px;border-radius:99px;border:2px solid var(--ink);background:#fff}.dots i.on{background:var(--acc)}
+.tc .chk{padding:6px 0}
 </style>
 </head>
 <body>
 <div class="wrap stack" id="app"><p>Caricamento…</p></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="config.js?v=48"></script>
-<script src="core.js?v=48"></script>
-<script src="admin.js?v=48"></script>
+<script src="config.js?v=50"></script>
+<script src="core.js?v=50"></script>
+<script src="admin.js?v=50"></script>
 </body>
 </html>

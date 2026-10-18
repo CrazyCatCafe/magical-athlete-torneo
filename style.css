@@ -163,3 +163,25 @@ label{font-weight:800;display:block;margin-bottom:6px}
 .elod{font-weight:900;font-size:13px;font-variant-numeric:tabular-nums;min-width:38px;text-align:right;color:var(--muted)}
 .elod.up{color:#0b7a3e}.elod.dn{color:#b3261e}
 #f_pick{width:100%;min-height:52px;font:800 18px/1 Nunito,system-ui,sans-serif;border:3px solid var(--ink);border-radius:14px;padding:0 12px;background:var(--paper);color:var(--ink)}
+
+/* v5: storico a schede per telefono */
+.seg{display:flex;border:3px solid var(--ink);border-radius:99px;overflow:hidden;background:#fff}
+.seg button{flex:1;border:0;background:#fff;padding:9px 0;font:800 15px Nunito,system-ui,sans-serif;color:var(--ink);cursor:pointer}
+.seg button+button{border-left:2px solid var(--ink)}
+.seg button.on{background:var(--ink);color:#fff}
+.pcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.pc{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:0 10px;align-items:center;background:#fff;border:3px solid var(--ink);border-radius:16px;padding:9px 12px;box-shadow:3px 3px 0 var(--ink);text-align:left;font:inherit;color:var(--ink);cursor:pointer;width:100%}
+.pc.first{background:#fff6cf}
+.pc.open{background:var(--soft)}
+.pc .rk{grid-row:1/3;font:400 24px "Lilita One",sans-serif}
+.pc .nm{font:900 18px Nunito,system-ui,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc .sk{grid-row:1/3;grid-column:3;font:400 28px/1 "Lilita One",sans-serif;text-align:right;font-variant-numeric:tabular-nums}
+.pc .sk small{display:block;font:800 12px Nunito,sans-serif;color:#0b7a3e;text-align:right;margin-top:2px}
+.pc .sk small.dn{color:#b3261e}
+.pc .mini{grid-column:2/3;font:700 13px Nunito,system-ui,sans-serif;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc .more{grid-column:1/4;display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:8px;padding-top:8px;border-top:2px dashed #c9cdf0;font:700 14px Nunito,sans-serif}
+.tcard{display:block;width:100%;text-align:left;background:#fff;border:3px solid var(--ink);border-radius:16px;padding:10px 12px;box-shadow:3px 3px 0 var(--ink);font:inherit;color:var(--ink);cursor:pointer}
+.tcard.open{background:var(--soft)}
+.podl{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.podl span{font:800 13px Nunito,system-ui,sans-serif;border:2px solid var(--ink);border-radius:99px;padding:3px 9px;background:var(--soft)}
+.podl span.g{background:#ffc83d}.podl span.s{background:#d9dee9}.podl span.b{background:#e8a46b}
