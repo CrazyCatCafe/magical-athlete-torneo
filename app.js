@@ -464,7 +464,7 @@ function vEnd(){
  var aw=awards();
  if(aw.length)h+='<div class="grid" style="margin-top:18px">'+aw.map(function(a){return '<div class="st award"><span class="disc b mini" aria-hidden="true">★</span><div><div class="lbl">'+esc(a[0])+'</div><div style="font-weight:800">'+esc(a[1])+'</div></div></div>';}).join("")+'</div>';
  h+='<div class="st" style="margin-top:18px">'+board()+'</div>';
- h+='<div style="margin-top:18px">'+statsBtn()+'</div>';
+ h+='<div class="stack" style="margin-top:18px;gap:10px">'+shareBtn("end")+statsBtn()+'</div>';
  return h;
 }
 
@@ -645,12 +645,49 @@ function vStats(){
   if(top.length)h+='<div class="st"><div class="lbl">Racer che hanno vinto più gare</div><div class="row" style="gap:8px;margin-top:8px">'+top.map(function(c){return '<button type="button" class="pill cardpill" data-act="card" data-n="'+esc(c)+'" style="background:'+(TC[tierOf(c)]||'#e9e9f2')+'">'+esc(c)+' · '+rc[c].w+'</button>';}).join("")+'</div></div>';
  }else{
   h+='<div class="pcs">'+H.map(function(t){var op=STATOPEN==="t"+t.id,ps=t.players.slice().sort(function(a,b){return (a.pos||99)-(b.pos||99);});
-   return '<button type="button" class="tcard'+(op?' open':'')+'" data-act="statopen" data-n="t'+esc(t.id)+'" aria-expanded="'+op+'"><span class="row" style="gap:8px"><b class="t" style="font-size:20px">'+esc(fmtDate(t.date))+'</b><span class="mut grow" style="font-weight:700;font-size:13px">'+t.players.length+' giocatori</span><span style="font-weight:900">'+(op?'⌄':'›')+'</span></span>'+
+   return '<button type="button" class="tcard'+(op?' open':'')+'" data-act="statopen" data-n="t'+esc(t.id)+'" aria-expanded="'+op+'"><span class="row" style="gap:8px"><b class="t" style="font-size:20px">'+esc(fmtDate(t.date))+'</b><span class="mut grow" style="font-weight:700;font-size:13px">'+t.players.length+' giocatori</span><span class="shr" role="button" tabindex="0" data-act="share" data-v="'+esc(t.id)+'" aria-label="Condividi">↗ Condividi</span><span style="font-weight:900">'+(op?'⌄':'›')+'</span></span>'+
     (op?'<span class="stack" style="gap:4px;margin-top:8px">'+ps.map(function(p){var e=eloInfo(t.id,p.name);return '<span class="row" style="gap:8px"><b style="width:28px">'+p.pos+'°</b><b class="grow" style="text-align:left">'+esc(p.name)+'</b><b>'+p.p+' pt</b>'+(e?'<span class="elod'+(e.d>0?' up':(e.d<0?' dn':''))+'">'+eloTxt(e.d)+'</span>':'')+'</span>';}).join("")+'</span>'
      :'<span class="podl">'+ps.slice(0,3).map(function(p,q){return '<span class="'+["g","s","b"][q]+'">'+p.pos+'° '+esc(p.name)+' '+p.p+'</span>';}).join("")+'</span>')+'</button>';}).join("")+'</div>';
  }
  return h+'</div></div>';
 }
+
+/* ---------------- condividi (immagine per WhatsApp) ---------------- */
+function shareFit(ctx,txt,max,size,wt){var z=size;do{ctx.font=wt+" "+z+"px Nunito,sans-serif";z-=2;}while(ctx.measureText(txt).width>max&&z>14);return txt;}
+function shareRR(ctx,x,y,w,h,r,fill,stroke,lw){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.lineWidth=lw||6;ctx.strokeStyle=stroke;ctx.stroke();}}
+function shareCanvas(e){
+ var P=(e.players||[]).slice().sort(function(a,b){return (a.pos||99)-(b.pos||99);}).slice(0,8),n=P.length,W=1080,rowH=n>6?104:116,H=Math.max(1080,520+n*rowH+170);
+ var c=document.createElement("canvas");c.width=W;c.height=H;var x=c.getContext("2d");
+ x.fillStyle="#cfd4ff";x.fillRect(0,0,W,H);
+ shareRR(x,40,40,W-80,H-80,40,"#ffffff","#111",8);
+ x.textAlign="center";x.fillStyle="#111";x.font="64px 'Lilita One',Nunito,sans-serif";
+ shareRR(x,W/2-290,84,580,110,30,"#ffe14d","#111",8);x.fillStyle="#111";x.fillText("Magical Outlet",W/2,160);
+ x.font="800 34px Nunito,sans-serif";x.fillStyle="#555";x.fillText(fmtDate(e.date)+" · torneo concluso",W/2,250);
+ var win=P[0];
+ if(win){x.fillStyle="#111";x.font="800 30px Nunito,sans-serif";x.fillText("VINCE",W/2,320);shareFit(x,win.team||win.name,W-200,92,"400");
+  x.fillText(win.team||win.name,W/2,408);x.font="800 36px Nunito,sans-serif";x.fillStyle="#555";x.fillText(win.name+" · "+win.p+" punti",W/2,462);}
+ var y=500,col=["#ffc83d","#d9dee9","#e8a46b"];
+ P.forEach(function(p,q){var yy=y+q*rowH;shareRR(x,80,yy,W-160,rowH-14,26,q===0?"#fff4c2":"#f3f4ff","#111",5);
+  x.beginPath();x.arc(140,yy+(rowH-14)/2,32,0,7);x.fillStyle=col[q]||"#e9e9f2";x.fill();x.lineWidth=5;x.strokeStyle="#111";x.stroke();
+  x.fillStyle="#111";x.textAlign="center";x.font="900 36px Nunito,sans-serif";x.fillText(String(p.pos||q+1),140,yy+(rowH-14)/2+13);
+  x.textAlign="left";x.font="900 38px Nunito,sans-serif";var nm=p.name+(p.team&&p.team!==win.team&&p.team!==p.name?"":"");shareFit(x,nm,470,38,"900");x.fillText(nm,200,yy+(rowH-14)/2-(p.team?2:-12));
+  if(p.team){x.font="700 26px Nunito,sans-serif";x.fillStyle="#666";shareFit(x,p.team,470,26,"700");x.fillText(p.team,200,yy+(rowH-14)/2+30);}
+  var el=p.elo||eloInfo(e.id||e.tid,p.name);x.textAlign="right";x.fillStyle="#111";x.font="900 44px Nunito,sans-serif";x.fillText(p.p+" pt",el?W-300:W-120,yy+(rowH-14)/2+14);
+  if(el){x.font="800 28px Nunito,sans-serif";x.fillStyle=el.d>0?"#0a9b4f":(el.d<0?"#e0245e":"#666");x.fillText(eloTxt(el.d),W-120,yy+(rowH-14)/2-4);x.fillStyle="#666";x.font="700 22px Nunito,sans-serif";x.fillText("SKULO "+el.a,W-120,yy+(rowH-14)/2+26);}
+ });
+ x.textAlign="center";x.fillStyle="#555";x.font="800 26px Nunito,sans-serif";x.fillText("S.K.U.L.O. · Supremazia Konquistata Usando Lanci Onesti",W/2,H-80);
+ return c;
+}
+async function doShare(e){
+ try{if(document.fonts&&document.fonts.load){await Promise.all([document.fonts.load("64px 'Lilita One'"),document.fonts.load("900 38px Nunito"),document.fonts.load("700 26px Nunito")]);}}catch(_){}
+ var c=shareCanvas(e);
+ c.toBlob(async function(b){if(!b){msg="Non sono riuscito a creare l'immagine.";render();return;}
+  var f=new File([b],"magical-outlet-"+new Date(e.date||Date.now()).toISOString().slice(0,10)+".png",{type:"image/png"});
+  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:"Magical Outlet",text:"Magical Outlet · "+fmtDate(e.date)});return;}}catch(er){if(er&&er.name==="AbortError")return;}
+  var u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},4000);
+ },"image/png");
+}
+function shareBtn(v,small){return '<button type="button" class="btn '+(small?'sm ':'big ')+'alt sharebtn" data-act="share" data-v="'+esc(v)+'"><svg viewBox="0 0 24 24" width="'+(small?18:24)+'" height="'+(small?18:24)+'" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>Condividi</button>';}
 /* ---------------- tutorial ---------------- */
 var TUT=false;
 function tutBtn(){return '<button type="button" class="btn big alt tutbtn" data-act="tut"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7M9 12h5"/></svg>Tutorial: le regole</button>';}
@@ -831,6 +868,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "cardclose":if(ev.target.closest(".cm-in")&&!ev.target.closest("button"))return;CARDV=null;render();return;
  case "stats":STATSV=true;render();try{var sx=document.querySelector(".tut");if(sx)sx.scrollTop=0;}catch(e){}return;
  case "statsclose":STATSV=false;render();return;
+ case "share":{var sv=t.getAttribute("data-v"),en=null;if(sv==="end"){en=buildHistory(S);en.id=S.tid;}else{en=histList().filter(function(x){return String(x.id)===sv;})[0];}if(en)doShare(en);return;}
  case "stattab":STATTAB=t.getAttribute("data-v");STATOPEN=null;render();try{document.querySelector(".tut").scrollTop=0;}catch(e){}return;
  case "statopen":STATOPEN=STATOPEN===NM?null:NM;render();return;
  case "elotip":ELOTIP=NM||"";render();return;

@@ -238,3 +238,5 @@ label{font-weight:800;display:block;margin-bottom:6px}
 .ar{font-weight:900;font-size:13px;flex:none;margin-left:auto}
 .ar.up{color:#0a9b4f}.ar.dn{color:#e0245e}
 .tleg{padding:10px 12px}.tleg p{margin:4px 0 0;font-weight:700;font-size:13px}.tleg .ar{margin:0 4px 0 0}
+
+.shr{font:900 12px Nunito,sans-serif;border:2px solid #111;border-radius:99px;padding:3px 9px;background:#ffe14d;white-space:nowrap}
