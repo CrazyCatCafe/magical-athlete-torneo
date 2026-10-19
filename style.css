@@ -225,3 +225,12 @@ label{font-weight:800;display:block;margin-bottom:6px}
 .sheet .pw{font:900 11px Nunito,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .sheet p{font:700 17px/1.35 Nunito,system-ui,sans-serif;margin:4px 0 14px}
 .tierb{width:34px;height:34px;border-radius:99px;border:3px solid var(--ink);display:inline-flex;align-items:center;justify-content:center;font:400 18px "Lilita One",sans-serif}
+
+.tiersec{border:3px solid #111;border-radius:14px;overflow:hidden;background:#fff;box-shadow:3px 3px 0 #111}
+.tierh{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:3px solid #111;font-size:18px}
+.tierh span{font-weight:900;font-size:13px}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.tr{display:flex;align-items:center;gap:8px;padding:5px 8px;border:0;border-bottom:1px solid #0002;background:transparent;font:800 13px/1.15 Nunito,sans-serif;text-align:left;cursor:pointer;min-width:0;color:#111}
+.tr:nth-child(odd){border-right:1px solid #0002}
+.tr img,.tr .ph0{width:34px;height:34px;border-radius:7px;border:2px solid #111;object-fit:cover;flex:none;background:#e9e9f2}
+.tr .tn{min-width:0;overflow-wrap:anywhere}

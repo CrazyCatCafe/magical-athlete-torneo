@@ -623,9 +623,14 @@ function vStats(){
  var rows=names.map(function(n){var x=playerStats(n);x.elo=eloOf(n);var ser=E.series[nameKey(n)]||[];x.last=ser.length?ser[ser.length-1].d:0;return x;}).sort(function(a,b){return b.elo-a.elo||b.w-a.w||(b.avg||0)-(a.avg||0);});
  var h='<div class="tut statsv" role="dialog" aria-modal="true" aria-labelledby="st_t"><div class="ph stack" style="max-width:900px;gap:10px">';
  h+='<div class="tuthead stack" style="gap:8px"><div class="row"><span class="logo t" id="st_t">Storico</span><span class="grow"></span><button type="button" class="btn sm" data-act="statsclose">Chiudi</button></div>'+
-  '<div class="seg" role="tablist">'+[["classifica","Classifica"],["grafico","Grafico"],["tornei","Tornei"]].map(function(t){return '<button type="button" role="tab" aria-selected="'+(STATTAB===t[0])+'" class="'+(STATTAB===t[0]?'on':'')+'" data-act="stattab" data-v="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div></div>';
- if(!H.length){h+='<div class="st"><p style="margin:0;font-weight:800">Ancora nessun torneo nello storico.</p><p class="mut" style="margin:6px 0 0">Ogni torneo finito viene salvato qui da solo, con data, classifica, team e racer usati.</p></div>';return h+'</div></div>';}
- if(STATTAB==="classifica"){
+  '<div class="seg" role="tablist">'+[["classifica","Classifica"],["grafico","Grafico"],["tornei","Tornei"],["tier","Tier"]].map(function(t){return '<button type="button" role="tab" aria-selected="'+(STATTAB===t[0])+'" class="'+(STATTAB===t[0]?'on':'')+'" data-act="stattab" data-v="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div></div>';
+ if(!H.length&&STATTAB!=="tier"){h+='<div class="st"><p style="margin:0;font-weight:800">Ancora nessun torneo nello storico.</p><p class="mut" style="margin:6px 0 0">Ogni torneo finito viene salvato qui da solo, con data, classifica, team e racer usati.</p></div>';return h+'</div></div>';}
+ if(STATTAB==="tier"){
+  var RR=rosterNow().slice();
+  ["S","A","B","C","D"].forEach(function(T){var L=RR.filter(function(x){return x.t===T;}).sort(function(a,b){return String(a.n).localeCompare(String(b.n),"it");});
+   if(!L.length)return;
+   h+='<div class="tiersec"><div class="tierh" style="background:'+(TC[T]||'#e9e9f2')+'"><b class="t">Tier '+T+'</b><span>'+L.length+'</span></div><div class="tgrid">'+L.map(function(x){var im=artOf(x.n);return '<button type="button" class="tr" data-act="card" data-n="'+esc(x.n)+'">'+(im?'<img src="'+im+'" alt="" loading="lazy">':'<span class="ph0"></span>')+'<span class="tn">'+esc(x.n)+'</span></button>';}).join("")+'</div></div>';});
+ }else if(STATTAB==="classifica"){
   h+='<p class="mut" style="margin:0;font-weight:800;font-size:13px">S.K.U.L.O. · <i>Supremazia Konquistata Usando Lanci Onesti</i> · tocca un nome per i dettagli</p><div class="pcs">';
   rows.forEach(function(x,q){var op=STATOPEN==="p"+x.name;
    h+='<button type="button" class="pc'+(q===0?' first':'')+(op?' open':'')+'" data-act="statopen" data-n="p'+esc(x.name)+'" aria-expanded="'+op+'"><span class="rk">'+(q+1)+'</span><span class="nm">'+esc(x.name)+'</span><span class="sk">'+x.elo+(x.last?'<small class="'+(x.last<0?'dn':'')+'">'+eloTxt(x.last)+'</small>':'')+'</span>'+
