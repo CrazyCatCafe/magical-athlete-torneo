@@ -74,7 +74,7 @@ function parseImport(txt){
  blocks.forEach(function(b){b.rows.sort(function(x,y){return y.p-x.p;});});
  return blocks;
 }
-function guessGame(b,used){var best=null,bs=0;(GAMES||[]).forEach(function(g){if(!g.players||used[g.code])return;var names=suggestFromGame(g.code).map(function(r){return nk(normName(r.name));});var bk=[];b.rows.forEach(function(r){Core.members(r.name).forEach(function(m){bk.push(nk(m));});});
+function guessGame(b,used){var best=null,bs=0;(GAMES||[]).forEach(function(g){if(!g.players||used[g.code]||histByCode(g.code))return;var names=suggestFromGame(g.code).map(function(r){return nk(normName(r.name));});var bk=[];b.rows.forEach(function(r){Core.members(r.name).forEach(function(m){bk.push(nk(m));});});
  var ov=bk.filter(function(k){return names.indexOf(k)>=0;}).length/Math.max(bk.length,names.length);if(ov>bs){bs=ov;best=g;}});return bs>=0.5?best:null;}
 function prepImport(){var bl=parseImport(IMPTXT),used={};IMP=bl.map(function(b,i){var g=guessGame(b,used);if(g)used[g.code]=1;return {rows:b.rows,code:g?g.code:"",date:b.date||isoDay(g?g.created:(Date.now()-(bl.length-i)*7*864e5))};});IMPI=IMP.length?0:-1;impEdit();draw();}
 function impEdit(){EDIT=(IMPI>=0&&IMP&&IMP[IMPI])?{where:"imp",rows:IMP[IMPI].rows}:null;}
@@ -215,6 +215,7 @@ document.getElementById("app").addEventListener("click",async function(ev){
   if(!IMP.length){MSG="Questo torneo è già nello storico ("+dupl.join(", ")+"): non l'ho duplicato.";IMP=null;IMPI=-1;EDIT=null;draw();return;}
   var codes={},dupc=false;IMP.forEach(function(t){if(t.code){if(codes[t.code])dupc=true;codes[t.code]=1;}});if(dupc){MSG="Due tornei puntano alla stessa partita: cambia la scelta.";draw();return;}
   for(var ii=0;ii<IMP.length;ii++){var tt=IMP[ii],gg2=(GAMES||[]).filter(function(g){return g.code===tt.code;})[0],hid2=tt.code?histByCode(tt.code):null,dt2=new Date(tt.date+"T12:00:00").getTime();
+   if(hid2){var oldN=((HIST[hid2]||{}).players||[]).map(function(p){return nk(p.name);}).sort().join("|"),newN=tt.rows.map(function(r){return nk(r.name);}).sort().join("|");if(oldN!==newN){hid2=null;tt.code="";gg2=null;}}
    var id2=hid2||(tt.code?"g_"+tt.code+"_"+((gg2&&gg2.created)||dt2):"m_"+dt2+"_"+ii);
    var pos=0,lastP=null;var ent2={date:isNaN(dt2)?Date.now():dt2,code:tt.code||"",races:[],manual:true,players:tt.rows.map(function(r,q){return {name:r.name,team:"",pos:q+1,p:r.p,rw:0,b:0,f:0,fb:0,cards:[],last:""};})};
    await wt(DB.ref("global/history/"+id2).set(ent2));HIST[id2]=ent2;await registerNames(tt.rows.map(function(r){return r.name;}));}
