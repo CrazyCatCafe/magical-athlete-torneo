@@ -77,7 +77,7 @@ function guessGame(b,used){var best=null,bs=0;(GAMES||[]).forEach(function(g){if
 function prepImport(){var bl=parseImport(IMPTXT),used={};IMP=bl.map(function(b,i){var g=guessGame(b,used);if(g)used[g.code]=1;return {rows:b.rows,code:g?g.code:"",date:isoDay(g?g.created:(Date.now()-(bl.length-i)*7*864e5))};});IMPI=IMP.length?0:-1;impEdit();draw();}
 function impEdit(){EDIT=(IMPI>=0&&IMP&&IMP[IMPI])?{where:"imp",rows:IMP[IMPI].rows}:null;}
 function histByCode(code){var id=null;Object.keys(HIST||{}).forEach(function(k){if(HIST[k]&&HIST[k].code===code)id=k;});return id;}
-function tierBonusRaw(st,card){var t="D";(st.roster||[]).forEach(function(x){if(x.n===card)t=x.t||"D";});return (t==="S"||t==="A")?2:(t==="D"?0:1);}
+function tierBonusRaw(st,card){var t="D";(st.roster||[]).forEach(function(x){if(x.n===card)t=x.t||"D";});return (t==="S"||t==="A")?2:((t==="D"||t==="E")?0:1);}
 function suggestFromGame(code){
  var R=RAW[code]||{},g=R.g||{},st=R.st,rows=[];
  if(st&&st.started&&st.names&&st.names.length){

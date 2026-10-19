@@ -234,3 +234,7 @@ label{font-weight:800;display:block;margin-bottom:6px}
 .tr:nth-child(odd){border-right:1px solid #0002}
 .tr img,.tr .ph0{width:34px;height:34px;border-radius:7px;border:2px solid #111;object-fit:cover;flex:none;background:#e9e9f2}
 .tr .tn{min-width:0;overflow-wrap:anywhere}
+
+.ar{font-weight:900;font-size:13px;flex:none;margin-left:auto}
+.ar.up{color:#0a9b4f}.ar.dn{color:#e0245e}
+.tleg{padding:10px 12px}.tleg p{margin:4px 0 0;font-weight:700;font-size:13px}.tleg .ar{margin:0 4px 0 0}

@@ -13,7 +13,7 @@ App per il torneo «Magical Outlet» (varianti da torneo di Magical Athlete): og
 - Ogni giocatore sceglie il **nome del team** quando entra (si cambia in sala d'attesa).
 - **Foto delle carte**: dal tablet, Carte → «Aggiungi foto». Le immagini vengono rimpicciolite e salvate nel vostro Firebase (`global/images`).
 - **Livelli che cambiano**: a fine gara la carta del 1° sale di un livello (max S), quella dell'ultimo scende di uno (min D); ultimo a pari merito: sorteggio. I cambi di livello sono permanenti: valgono anche per le partite successive (si possono ripristinare dalle Impostazioni).
-- **Fine**: la carta rimasta in mano dà S/A +2, B/C +1, D 0. Parità finale: meno rutti e scoregge, poi più vittorie, poi più bronzi.
+- **Fine**: la carta rimasta in mano dà S/A +2, B/C +1, D/E 0. Parità finale: meno rutti e scoregge, poi più vittorie, poi più bronzi.
 - Il tasto **Rutti e scoregge** sul telefono fa partire un suono anche sul tablet, quando vuoi. Ogni pressione viene contata e pesa negli spareggi.
 
 ## Come si usa
