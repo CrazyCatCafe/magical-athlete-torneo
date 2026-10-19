@@ -240,3 +240,21 @@ label{font-weight:800;display:block;margin-bottom:6px}
 .tleg{padding:10px 12px}.tleg p{margin:4px 0 0;font-weight:700;font-size:13px}.tleg .ar{margin:0 4px 0 0}
 
 .shr{font:900 12px Nunito,sans-serif;border:2px solid #111;border-radius:99px;padding:3px 9px;background:#ffe14d;white-space:nowrap}
+
+.pr{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto auto;gap:0 8px;align-items:center;background:#fff;border:3px solid var(--ink);border-radius:16px;padding:7px 8px 7px 12px;box-shadow:3px 3px 0 var(--ink);margin-top:7px}
+.pr.first{background:#fff6cf}.pr.me{background:#d9f7e6}.pr.open{background:var(--soft)}
+.pr .rk{font:400 22px "Lilita One",sans-serif}
+.pr .nm{font:900 17px Nunito,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr .df{font:800 12px Nunito,sans-serif;color:#6a6f9a}
+.pr .sk{font:400 24px/1 "Lilita One",sans-serif;text-align:right;min-width:60px}
+.pr .sk small{display:block;font:800 11px Nunito,sans-serif;color:#0b7a3e}.pr .sk small.dn{color:#b3261e}
+.stb{border:2px solid var(--ink);border-radius:99px;background:#ffe14d;font:900 12px Nunito,sans-serif;padding:0 11px;min-height:36px;cursor:pointer;color:var(--ink)}
+.pr .more{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:7px;padding-top:7px;border-top:2px dashed #c9cdf0;font:700 14px Nunito,sans-serif}
+.mineb{background:#ffe14d;border:3px solid var(--ink);border-radius:18px;padding:8px 10px 10px;box-shadow:4px 4px 0 var(--ink);margin-top:10px}
+.mineb .lb{font:900 11px Nunito;letter-spacing:.1em;text-transform:uppercase;margin:0 0 2px}
+.mineb .pr{box-shadow:none}
+.sub{font:800 12px Nunito;color:#6a6f9a;margin:12px 2px 0;letter-spacing:.06em;text-transform:uppercase}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:3px solid var(--ink);border-radius:99px;padding:0 14px;min-height:40px;font:900 14px Nunito;background:#fff;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip.on{background:var(--ink);color:#fff}
+.chip.sel select{border:0;background:transparent;font:900 14px Nunito;color:var(--ink);max-width:110px}

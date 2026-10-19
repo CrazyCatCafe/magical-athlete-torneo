@@ -617,7 +617,7 @@ function statsBtn(){return '<button type="button" class="btn big alt tutbtn" dat
 function vCardModal(){SHEET={n:CARDV,a:null};var x=vSheet();SHEET=null;return x;}
 function vCardModalOld(){return '<div class="tut cardmodal" role="dialog" aria-modal="true" aria-label="'+esc(CARDV)+'" data-act="cardclose"><div class="cm-in">'+aCard(CARDV,{btn:'<button type="button" class="btn" data-act="cardclose">Chiudi</button>'})+'</div></div>';}
 function fmtDate(t){try{return new Date(t).toLocaleDateString("it-IT",{day:"numeric",month:"short",year:"numeric"});}catch(e){return "";}}
-var STATTAB="classifica",STATOPEN=null;
+var STATTAB="classifica",STATOPEN=null,STATVIEW="top",STATME=(function(){try{return localStorage.getItem("ma_statme")||"";}catch(e){return "";}})();
 function vStats(){
  var H=histList(),E=eloNow(),names=knownPlayers().filter(function(n){return playerStats(n).t>0;});
  var rows=names.map(function(n){var x=playerStats(n);x.elo=eloOf(n);var ser=E.series[nameKey(n)]||[];x.last=ser.length?ser[ser.length-1].d:0;return x;}).sort(function(a,b){return b.elo-a.elo||b.w-a.w||(b.avg||0)-(a.avg||0);});
@@ -632,12 +632,15 @@ function vStats(){
    if(!L.length)return;
    h+='<div class="tiersec"><div class="tierh" style="background:'+(TC[T]||'#e9e9f2')+'"><b class="t">Tier '+T+'</b><span>'+L.length+'</span></div><div class="tgrid">'+L.map(function(x){var im=artOf(x.n);var d=TRANK[x.t]-TRANK[BASE[x.n]],ar=d>0?'<span class="ar up" title="Salito da '+BASE[x.n]+'">▲</span>':(d<0?'<span class="ar dn" title="Sceso da '+BASE[x.n]+'">▼</span>':'');return '<button type="button" class="tr" data-act="card" data-n="'+esc(x.n)+'">'+(im?'<img src="'+im+'" alt="" loading="lazy">':'<span class="ph0"></span>')+'<span class="tn">'+esc(x.n)+'</span>'+ar+'</button>';}).join("")+'</div></div>';});
  }else if(STATTAB==="classifica"){
-  h+='<p class="mut" style="margin:0;font-weight:800;font-size:13px">S.K.U.L.O. · <i>Supremazia Konquistata Usando Lanci Onesti</i> · tocca un nome per i dettagli</p><div class="pcs">';
-  rows.forEach(function(x,q){var op=STATOPEN==="p"+x.name;
-   h+='<button type="button" class="pc'+(q===0?' first':'')+(op?' open':'')+'" data-act="statopen" data-n="p'+esc(x.name)+'" aria-expanded="'+op+'"><span class="rk">'+(q+1)+'</span><span class="nm">'+esc(x.name)+'</span><span class="sk">'+x.elo+(x.last?'<small class="'+(x.last<0?'dn':'')+'">'+eloTxt(x.last)+'</small>':'')+'</span>'+
-    '<span class="mini">'+x.t+(x.t===1?' torneo':' tornei')+' · '+x.w+(x.w===1?' vinto':' vinti')+' · media '+String(x.avg).replace(".",",")+'</span>'+
-    (op?'<span class="more"><span><b>'+x.wr+'%</b> vittorie</span><span><b>'+x.pod+'</b> podi</span><span>record <b>'+(x.best||0)+'</b></span><span><b>'+x.pts+'</b> punti tot.</span>'+(x.races?'<span>gare vinte <b>'+x.rw+'/'+x.races+'</b></span>':'')+'</span>':'')+'</button>';});
-  h+='</div>';
+  var mine=STATME&&rows.filter(function(x){return nameKey(x.name)===nameKey(STATME);})[0],mq=mine?rows.indexOf(mine)+1:0,show=STATVIEW==="all"?rows:rows.slice(0,10);
+  function crow(x,q,pin){var op=STATOPEN==="p"+x.name,isMe=mine&&x===mine,df=(mine&&!isMe)?x.elo-mine.elo:null;
+   return '<div class="pr'+(q===1?' first':'')+(isMe&&!pin?' me':'')+(op?' open':'')+'"><span class="rk">'+q+'</span><span class="nm">'+esc(x.name)+'</span>'+(df!==null?'<span class="df">'+(df>0?'+':(df<0?'−':'±'))+Math.abs(df)+'</span>':'<span></span>')+'<span class="sk">'+x.elo+(x.last?'<small class="'+(x.last<0?'dn':'')+'">'+eloTxt(x.last)+'</small>':'')+'</span><button type="button" class="stb" data-act="statopen" data-n="p'+esc(x.name)+'" aria-expanded="'+op+'">Stat</button>'+
+    (op?'<span class="more"><span><b>'+(x.wr===null?'–':x.wr+'%')+'</b> winrate</span><span><b>'+String(x.avg).replace(".",",")+'</b> media punti</span><span>record <b>'+(x.best||0)+'</b></span><span><b>'+x.pts+'</b> punti tot.</span><span><b>'+x.t+'</b> '+(x.t===1?'torneo':'tornei')+'</span></span>':'')+'</div>';}
+  h+='<div class="chips"><button type="button" class="chip'+(STATVIEW==="top"?' on':'')+'" data-act="statview" data-v="top">Top 10</button><button type="button" class="chip'+(STATVIEW==="all"?' on':'')+'" data-act="statview" data-v="all">Tutti ('+rows.length+')</button><label class="chip sel"><span>Io:</span><select id="st_me" aria-label="Chi sei">'+'<option value=""'+(mine?'':' selected')+'>–</option>'+rows.map(function(x){return '<option value="'+esc(x.name)+'"'+(mine&&x===mine?' selected':'')+'>'+esc(x.name)+'</option>';}).join("")+'</select></label></div>';
+  h+='<p class="mut" style="margin:0;font-weight:800;font-size:12px">S.K.U.L.O. · <i>Supremazia Konquistata Usando Lanci Onesti</i></p>';
+  if(mine&&(STATVIEW==="all"||mq>10))h+='<div class="mineb"><p class="lb">La tua posizione</p>'+crow(mine,mq,true)+'</div>';
+  h+='<div class="sub">'+(STATVIEW==="all"?'Tutti':'Top 10')+(mine?' · differenza da te':'')+'</div>';
+  show.forEach(function(x,q){h+=crow(x,rows.indexOf(x)+1,false);});
  }else if(STATTAB==="grafico"){
   h+=eloChart();
   var rc={};H.forEach(function(t){(t.races||[]).forEach(function(R){if(R.c1){rc[R.c1]=rc[R.c1]||{w:0};rc[R.c1].w++;}});});
@@ -817,6 +820,7 @@ function resizeImage(file){
 }
 document.getElementById("app").addEventListener("change",function(ev){
  var t=ev.target;
+ if(t.id==="st_me"){STATME=t.value;try{localStorage.setItem("ma_statme",STATME);}catch(e){}render();return;}
  if(t.id==="f_pick"){PICKSEL=t.value;var nn=document.getElementById("newname");if(nn){nn.hidden=t.value!=="__new";if(t.value==="__new"){var fi=document.getElementById("f_name");fi&&fi.focus();}}return;}
  if(t.id==="f_snd"){SND=t.value;lsSet("ma_snd",SND);funny();return;}
  if(t.getAttribute&&t.getAttribute("data-bulk")&&t.files&&t.files.length){bulkImages(Array.prototype.slice.call(t.files));return;}
@@ -869,6 +873,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "stats":STATSV=true;render();try{var sx=document.querySelector(".tut");if(sx)sx.scrollTop=0;}catch(e){}return;
  case "statsclose":STATSV=false;render();return;
  case "share":{var sv=t.getAttribute("data-v"),en=null;if(sv==="end"){en=buildHistory(S);en.id=S.tid;}else{en=histList().filter(function(x){return String(x.id)===sv;})[0];}if(en)doShare(en);return;}
+ case "statview":STATVIEW=t.getAttribute("data-v");render();return;
  case "stattab":STATTAB=t.getAttribute("data-v");STATOPEN=null;render();try{document.querySelector(".tut").scrollTop=0;}catch(e){}return;
  case "statopen":STATOPEN=STATOPEN===NM?null:NM;render();return;
  case "elotip":ELOTIP=NM||"";render();return;
