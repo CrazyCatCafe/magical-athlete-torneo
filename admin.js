@@ -62,9 +62,11 @@ function normName(n){n=String(n||"").trim();var k=nk(n);if(ALIAS[k])return ALIAS
 function normSeat(n){return Core.members(n).map(normName).join(" / ");}
 async function registerNames(list){for(var i=0;i<list.length;i++){var ms=Core.members(list[i]);for(var j=0;j<ms.length;j++){var rk=nk(ms[j]);if(DEFPLAYERS.every(function(x){return nk(x)!==rk;})&&!(REGP||{})[rk]){try{await wt(DB.ref("global/players/"+rk).set({name:ms[j],t:Date.now()}));(REGP=REGP||{})[rk]={name:ms[j]};}catch(e){}}}}}
 /* ---- importazione di risultati scritti a mano ---- */
-var IMPTXT="Magical Athlete torneo\nluca 10\nLuigi 10\nRiccardo 3\nsimone 39\nmirco 8\n\nMagical Athlete torneo\nLuca 9\nRiccardo 11\nLuigi 8\nMirco 9\nSimone 15\n\nMagical Athlete\nStefano 5\nCostanzo 5\nLuca 6\nSimone 12\nLuigi/fabio 3\nRiccardo 7",IMP=null;
+var IMPTXT="Magical Athlete\nStefano 5\nCostanzo 5\nLuca 6\nSimone 12\nFabio 3\nRiccardo 7",IMP=null;
 function parseImport(txt){
  var blocks=[],cur=null;String(txt||"").split(/\n/).forEach(function(line){var l=line.trim();if(!l){cur=null;return;}
+  var dm=l.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4}|\d{2})\b/);
+  if(dm){var yy=dm[3].length===2?2000+parseInt(dm[3],10):parseInt(dm[3],10);cur={rows:[],date:yy+"-"+("0"+dm[2]).slice(-2)+"-"+("0"+dm[1]).slice(-2)};blocks.push(cur);return;}
   var m=l.match(/^(.+?)[\s:=-]+(-?\d+)\s*(pt|punti)?$/i);
   if(!m||/^magical/i.test(l)){cur={rows:[]};blocks.push(cur);return;}
   if(!cur){cur={rows:[]};blocks.push(cur);}cur.rows.push({name:normSeat(m[1]),p:parseInt(m[2],10)});});
@@ -74,7 +76,7 @@ function parseImport(txt){
 }
 function guessGame(b,used){var best=null,bs=0;(GAMES||[]).forEach(function(g){if(!g.players||used[g.code])return;var names=suggestFromGame(g.code).map(function(r){return nk(normName(r.name));});var bk=[];b.rows.forEach(function(r){Core.members(r.name).forEach(function(m){bk.push(nk(m));});});
  var ov=bk.filter(function(k){return names.indexOf(k)>=0;}).length/Math.max(bk.length,names.length);if(ov>bs){bs=ov;best=g;}});return bs>=0.5?best:null;}
-function prepImport(){var bl=parseImport(IMPTXT),used={};IMP=bl.map(function(b,i){var g=guessGame(b,used);if(g)used[g.code]=1;return {rows:b.rows,code:g?g.code:"",date:isoDay(g?g.created:(Date.now()-(bl.length-i)*7*864e5))};});IMPI=IMP.length?0:-1;impEdit();draw();}
+function prepImport(){var bl=parseImport(IMPTXT),used={};IMP=bl.map(function(b,i){var g=guessGame(b,used);if(g)used[g.code]=1;return {rows:b.rows,code:g?g.code:"",date:b.date||isoDay(g?g.created:(Date.now()-(bl.length-i)*7*864e5))};});IMPI=IMP.length?0:-1;impEdit();draw();}
 function impEdit(){EDIT=(IMPI>=0&&IMP&&IMP[IMPI])?{where:"imp",rows:IMP[IMPI].rows}:null;}
 function histByCode(code){var id=null;Object.keys(HIST||{}).forEach(function(k){if(HIST[k]&&HIST[k].code===code)id=k;});return id;}
 function tierBonusRaw(st,card){var t="D";(st.roster||[]).forEach(function(x){if(x.n===card)t=x.t||"D";});return (t==="S"||t==="A")?2:((t==="D"||t==="E")?0:1);}
@@ -143,7 +145,7 @@ function tabPartite(){
 function tabImporta(){
  var h='';
  if(IMPI<0||!IMP||!IMP.length){
-  h+='<p class="mut" style="margin:0;font-weight:700">Incolla i risultati: un torneo per blocco, una riga per giocatore («Nome punti»). «Luigi/Fabio» = posto condiviso.</p><textarea class="code" id="imptxt" style="min-height:300px">'+esc(IMPTXT)+'</textarea>';
+  h+='<p class="mut" style="margin:0;font-weight:700">Incolla i risultati: un torneo per blocco, una riga per giocatore («Nome punti»). Per una data scrivi nella riga del titolo (es. «Magical Athlete 12/10/2026»). I nomi nuovi vengono registrati da soli. «Luigi/Fabio» = posto condiviso (una persona sola: scrivi solo il nome). I racer non servono: i livelli non cambiano.</p><textarea class="code" id="imptxt" style="min-height:300px">'+esc(IMPTXT)+'</textarea>';
   if(IMP&&!IMP.length)h+='<p style="font-weight:800;color:var(--red)">Non trovo tornei: controlla il formato.</p>';
   return h;
  }
@@ -209,6 +211,8 @@ document.getElementById("app").addEventListener("click",async function(ev){
  if(a==="delplayer"){var pc=t.getAttribute("data-c");if(CONF!=="p"+pc){ask("p"+pc);return;}CONF=null;await wt(DB.ref("global/players/"+pc).remove());delete REGP[pc];MSG="Giocatore tolto.";draw();return;}
  if(a==="impprev"){var it=document.getElementById("imptxt");if(it)IMPTXT=it.value;prepImport();return;}
  if(a==="impsave"){if(!IMP||!IMP.length)return;syncEdit();edSort();IMP.forEach(function(t){t.rows=t.rows.filter(function(r){return String(r.name).trim();}).map(function(r){return {name:normSeat(r.name),p:r.p};});});
+  var dupl=[];IMP=IMP.filter(function(t){var sig=function(rows){return rows.map(function(r){return nk(r.name)+":"+r.p;}).sort().join("|");},day=String(t.date),sg=sig(t.rows);var hit=Object.keys(HIST||{}).some(function(k){var h=HIST[k];return h&&h.players&&String(isoDay(h.date))===day&&sig(h.players.map(function(p){return {name:p.name,p:p.p};}))===sg;});if(hit)dupl.push(day);return !hit;});
+  if(!IMP.length){MSG="Questo torneo è già nello storico ("+dupl.join(", ")+"): non l'ho duplicato.";IMP=null;IMPI=-1;EDIT=null;draw();return;}
   var codes={},dupc=false;IMP.forEach(function(t){if(t.code){if(codes[t.code])dupc=true;codes[t.code]=1;}});if(dupc){MSG="Due tornei puntano alla stessa partita: cambia la scelta.";draw();return;}
   for(var ii=0;ii<IMP.length;ii++){var tt=IMP[ii],gg2=(GAMES||[]).filter(function(g){return g.code===tt.code;})[0],hid2=tt.code?histByCode(tt.code):null,dt2=new Date(tt.date+"T12:00:00").getTime();
    var id2=hid2||(tt.code?"g_"+tt.code+"_"+((gg2&&gg2.created)||dt2):"m_"+dt2+"_"+ii);
