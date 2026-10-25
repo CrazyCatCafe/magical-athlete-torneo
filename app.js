@@ -26,7 +26,7 @@ function dot(i){return dotN(S.names,i);}
    orario; il giro dopo comincia il giocatore successivo; la carta avanzata si scarta. 5 carte a testa.
  - Gara 1: si sceglie la carta in senso orario a partire dal giocatore estratto. Gare 2-4: dal più punti
    (pari: meno rutti/scoregge, poi livello carta gara precedente, poi caso). Poi l'ultimo in classifica sceglie chi parte.
- - Fine: la carta rimasta dà S/A +2, B/C +1, D 0. Livelli: la carta del 1° sale, quella dell'ultimo scende (permanente).
+ - Fine: la carta rimasta non dà punti. Livelli: la carta del 1° sale, quella dell'ultimo scende (permanente).
 */
 var RACES=4,DRAFTS=5;
 var DEFPTS=[[3,1],[4,2],[4,2],[5,3]];
@@ -63,13 +63,14 @@ function nPicks(r){return Object.keys(r.picks||{}).length;}
 function phaseOf(o,r){if(!r)return "none";if(r.done)return "done";if(r.first===null||r.first===undefined)return "starter";if(nPicks(r)<o.names.length)return "sel";if(r.w1===null)return "race";return "result";}
 function phase(r){return phaseOf(S,r);}
 function finished(){return S.started&&S.stage==="end";}
-function effBz(r,p){return Math.max(0,((r.bz&&r.bz[p])||0)+(BONUS[r.id+"_"+p]||0));}
+function effBz(r,p){return Math.max(0,baseBz(r,p)+((r.bz&&r.bz[p])||0)+(BONUS[r.id+"_"+p]||0));}
 function raceScore(r,p){return (r.w1===p?(r.g||0):0)+(r.w2===p?(r.s||0):0)+effBz(r,p);}
 function tierBonusIn(o,n){var t=tierIn(o,n);return (t==="S"||t==="A")?2:((t==="D"||t==="E")?0:1);}
-function finalBonus(o,i){if(o.stage!=="end")return 0;var h=o.hands[i]||[];return h.length?tierBonusIn(o,h[0]):0;}
+function finalBonus(o,i){return 0;}
+function baseBz(r,p){return r&&r.picks&&r.picks[p]==="Sisyphus"?4:0;}
 function totals(o){
  var n=o.names.length,p=[],w=[],b=[],fb=[];for(var i=0;i<n;i++){p.push(0);w.push(0);b.push(0);fb.push(finalBonus(o,i));}
- o.races.forEach(function(R){if(!R.done)return;for(var i=0;i<n;i++){var v=Math.max(0,((R.bz&&R.bz[i])||0)+(BONUS[R.id+"_"+i]||0));b[i]+=v;p[i]+=v;}if(R.w1!==null){p[R.w1]+=R.g||0;w[R.w1]++;}if(R.w2!==null)p[R.w2]+=R.s||0;});
+ o.races.forEach(function(R){if(!R.done)return;for(var i=0;i<n;i++){var v=Math.max(0,baseBz(R,i)+((R.bz&&R.bz[i])||0)+(BONUS[R.id+"_"+i]||0));b[i]+=v;p[i]+=v;}if(R.w1!==null){p[R.w1]+=R.g||0;w[R.w1]++;}if(R.w2!==null)p[R.w2]+=R.s||0;});
  for(var j=0;j<n;j++)p[j]+=fb[j];
  return {p:p,w:w,b:b,fb:fb};
 }
@@ -195,7 +196,7 @@ function makeLocalBackend(){
   join:function(c,name,team){var m=get("games/"+c+"/players")||{};var ex=null;Object.keys(m).forEach(function(id){if(m[id].name.toLowerCase()===name.toLowerCase())ex=id;});if(!ex)m["p"+Date.now().toString(36)+Math.floor(Math.random()*1e4)]={name:name,t:Date.now(),team:team||""};else if(team)m[ex].team=team;put("games/"+c+"/players",m);return Promise.resolve();},
   removePlayer:function(c,id){var m=get("games/"+c+"/players")||{};delete m[id];put("games/"+c+"/players",m);return Promise.resolve();},
   watchBonus:function(c,cb){return watch("games/"+c+"/bonus",function(v){cb(v||{});});},
-  incBonus:function(c,idx,rid,d){var m=get("games/"+c+"/bonus")||{};m[idx]=m[idx]||{};m[idx][rid]=Math.max(0,(m[idx][rid]||0)+d);put("games/"+c+"/bonus",m);return Promise.resolve();},
+  incBonus:function(c,idx,rid,d){var m=get("games/"+c+"/bonus")||{};m[idx]=m[idx]||{};m[idx][rid]=Math.max(-4,(m[idx][rid]||0)+d);put("games/"+c+"/bonus",m);return Promise.resolve();},
   watchFarts:function(c,cb){return watch("games/"+c+"/farts",function(v){cb(v||{});});},
   sendFart:function(c,key,data){var m=get("games/"+c+"/farts")||{};data.t=Date.now();data.c=((m[key]&&m[key].c)||0)+1;m[key]=data;put("games/"+c+"/farts",m);return Promise.resolve();},
   resetFarts:function(c){put("games/"+c+"/farts",{});return Promise.resolve();},
@@ -228,7 +229,7 @@ function makeFirebaseBackend(cfg){
   join:function(c,name,team){var ref=r("games/"+c+"/players");return ref.get().then(function(s){var m=s.val()||{};var ex=null;Object.keys(m).forEach(function(id){if(m[id]&&m[id].name&&m[id].name.toLowerCase()===name.toLowerCase())ex=id;});if(!ex)return ref.push({name:name,t:firebase.database.ServerValue.TIMESTAMP,team:team||""});if(team)return ref.child(ex+"/team").set(team);});},
   removePlayer:function(c,id){return r("games/"+c+"/players/"+id).remove();},
   watchBonus:function(c,cb){return on(r("games/"+c+"/bonus"),function(v){cb(v||{});});},
-  incBonus:function(c,idx,rid,d){return r("games/"+c+"/bonus/"+idx+"/"+rid).transaction(function(v){return Math.max(0,(v||0)+d);});},
+  incBonus:function(c,idx,rid,d){return r("games/"+c+"/bonus/"+idx+"/"+rid).transaction(function(v){return Math.max(-4,(v||0)+d);});},
   watchFarts:function(c,cb){return on(r("games/"+c+"/farts"),function(v){cb(v||{});});},
   sendFart:function(c,key,data){data.t=Date.now();return r("games/"+c+"/farts/"+key).transaction(function(v){data.c=((v&&v.c)||0)+1;return data;});},
   resetFarts:function(c){return r("games/"+c+"/farts").remove();},
@@ -280,7 +281,7 @@ function orderStrip(order,picks,hideCards){
  return '<div class="order" aria-label="Ordine di scelta">'+order.map(function(p,k){var cls=k<np?' done':(k===np?' now':'');return '<div class="os'+cls+'">'+dot(p)+'<span>'+(k+1)+'. '+esc(S.names[p])+'</span>'+(k<np&&!hideCards?'<small>· '+esc(picks[p])+'</small>':'')+'</div>';}).join("")+'</div>';
 }
 function board(){
- var rows=standings(),ri=S.races.length-1,r=cur(),end=S.stage==="end",P=pts(S);
+ var rows=standings(),ri=S.races.length-1,r=cur(),end=false,P=pts(S);
  var h='<div class="board"><div class="lanes" style="--n:'+(RACES+(end?1:0))+'">';
  h+='<div class="lane head"><span></span><span style="text-align:left;padding-left:12px">Team</span>';
  for(var k=0;k<RACES;k++)h+='<span>G'+(k+1)+'<br><small style="font-weight:800;letter-spacing:.04em">'+P[k][0]+'/'+P[k][1]+'</small></span>';
@@ -304,7 +305,7 @@ function board(){
   h+='<span class="tot">'+x.p+'</span></div>';
  });
  h+='</div></div>';
- h+='<p class="mut" style="margin:14px 0 0">Punti 1°/2°: '+P.map(function(p,k){return 'G'+(k+1)+' '+p[0]+'/'+p[1];}).join(' · ')+'. Bronzo: +1 per stella o potere. Carta finale: S/A +2, B/C +1, D/E 0.</p>';
+ h+='<p class="mut" style="margin:14px 0 0">Punti 1°/2°: '+P.map(function(p,k){return 'G'+(k+1)+' '+p[0]+'/'+p[1];}).join(' · ')+'. Bronzo: +1 per stella o potere.</p>';
  return h;
 }
 function awards(){
@@ -322,7 +323,7 @@ function stageInfo(){
  var n=N(),r=cur(),ph=phase(r),k=S.races.length;
  if(S.stage==="pole")return {t:"Pole position",x:"Estratti a caso: chi parte nella gara 1 ("+S.names[S.pole.start]+"), chi sceglie per primo il racer della gara 1 ("+S.names[S.pole.reveal]+") e chi comincia il draft ("+S.names[S.pole.draft]+")."};
  if(S.stage==="draft"){var d=S.dr,np=Object.keys(d.picks).length;return {t:"Draft comune · giro "+(d.round+1)+" di "+DRAFTS,x:"Nella gara 1 parte "+S.names[S.pole.start]+". Si rivelano "+d.revealed.length+" carte e ognuno ne prende una, in senso orario. Ora sceglie "+S.names[d.order[np]]+". La carta che avanza si scarta. Alla fine avrete 5 carte a testa."};}
- if(S.stage==="end")return {t:"Torneo finito",x:"La carta rimasta in mano dà punti bonus: S o A +2, B o C +1, D 0."};
+ if(S.stage==="end")return {t:"Torneo finito",x:"Vince chi ha più punti."};
  if(ph==="sel"){var who=r.order[nPicks(r)];return {t:"Gara "+k+" · scelta del racer",x:"Parte "+S.names[r.first]+". "+(k===1?"Si sceglie in senso orario a partire da "+S.names[S.pole.reveal]+" (estratto a caso).":"Si sceglie dalla propria mano, da chi ha più punti.")+" Ora sceglie "+S.names[who]+"."};}
  if(ph==="starter")return {t:"Gara "+k+" · chi parte?",x:S.names[r.starterBy]+" è ultimo in classifica e decide chi parte per primo. Poi si scelgono i racer."};
  if(ph==="race")return {t:"Gara "+k+" in corso",x:startText(r)+" Premete +1 sul telefono per stelle e poteri."};
@@ -460,7 +461,6 @@ function vEnd(){
  h+='</div></div>';
  if(S.tid&&eloNow().per[S.tid])h+='<div class="st" style="margin-top:18px"><div class="lbl">S.K.U.L.O. dopo questo torneo</div><div class="row" style="gap:8px;margin-top:8px">'+rows.map(function(x){var e=eloInfo(S.tid,x.n);return e?'<span class="pill">'+esc(x.n)+' '+e.a+' <span class="elod'+(e.d>0?' up':(e.d<0?' dn':''))+'">'+eloTxt(e.d)+'</span></span>':'';}).join("")+'</div></div>';
  var fl=once("finalcards");
- h+='<h2 class="t" style="font-size:28px;margin:22px 0 12px">Le carte rimaste (bonus finale)</h2><div class="grid">'+S.names.map(function(nm,i){var c=(S.hands[i]||[])[0];if(!c)return '';return aCard(c,{flip:fl,delay:i*250,btn:'<div class="row">'+dot(i)+'<b class="grow">'+esc(teamOf(i))+'</b><span class="mini-b">+'+tierBonus(c)+'</span></div>'});}).join("")+'</div>';
  var aw=awards();
  if(aw.length)h+='<div class="grid" style="margin-top:18px">'+aw.map(function(a){return '<div class="st award"><span class="disc b mini" aria-hidden="true">★</span><div><div class="lbl">'+esc(a[0])+'</div><div style="font-weight:800">'+esc(a[1])+'</div></div></div>';}).join("")+'</div>';
  h+='<div class="st" style="margin-top:18px">'+board()+'</div>';
@@ -474,7 +474,7 @@ function vPlayer(){
  var h='<div class="ph stack">'+modeBanner()+'<div class="me">'+dot(i)+'<div class="grow"><div class="t" style="font-size:26px;line-height:1">'+esc(teamOf(i))+'</div><div class="mut">'+esc(S.names[i])+' · '+pts0+' punti · '+pos+'° · 💨 '+fartsOf(S,i)+' · '+esc(GAME.code)+'</div></div><button type="button" class="btn sm alt" data-act="leave">Esci</button></div>';
  if(msg)h+='<div class="st msg" role="status" style="font-weight:800">'+esc(msg)+'</div>';
  if(!SYNC&&!BE.local)h+='<div class="banner">Connessione persa: riprovo…</div>';
- if(finished()){var w=rows[0],c=(S.hands[i]||[])[0];return h+'<div class="st turn"><h2 class="t" style="font-size:32px">Torneo finito!</h2><p style="margin:4px 0 0;font-weight:800">Vince '+esc(teamOf(w.i))+' con '+w.p+' punti. Tu sei '+pos+'°.</p>'+(function(){var e=S.tid&&eloInfo(S.tid,S.names[i]);return e?'<p style="margin:6px 0 0;font-weight:900">S.K.U.L.O. '+e.a+' ('+eloTxt(e.d)+')</p>':'';})()+'</div>'+(c?'<div class="lbl">La tua carta bonus: +'+tierBonus(c)+'</div>'+aCard(c):'')+'<p class="mut">Guarda il podio sul tablet.</p>'+statsBtn()+'</div>';}
+ if(finished()){var w=rows[0],c=(S.hands[i]||[])[0];return h+'<div class="st turn"><h2 class="t" style="font-size:32px">Torneo finito!</h2><p style="margin:4px 0 0;font-weight:800">Vince '+esc(teamOf(w.i))+' con '+w.p+' punti. Tu sei '+pos+'°.</p>'+(function(){var e=S.tid&&eloInfo(S.tid,S.names[i]);return e?'<p style="margin:6px 0 0;font-weight:900">S.K.U.L.O. '+e.a+' ('+eloTxt(e.d)+')</p>':'';})()+'</div>'+'<p class="mut">Guarda il podio sul tablet.</p>'+statsBtn()+'</div>';}
  if(S.stage==="pole"){
   var you=[];if(S.pole.start===i)you.push('parti tu nella gara 1');if(S.pole.reveal===i)you.push('scegli per primo il racer della gara 1');if(S.pole.draft===i)you.push('cominci tu il draft');
   return h+infoBox()+(you.length?'<div class="st turn"><h2 class="t" style="font-size:28px">Pole position!</h2><p style="margin:4px 0 0;font-weight:800">Tocca a te: '+you.join(', ')+'.</p></div>':'')+'</div>';
@@ -521,7 +521,7 @@ function vPlayer(){
  }else h+='<p class="mut" style="margin:0">'+esc(startText(r))+'</p>';
  h+=aCard(r.picks[i]);
  h+='<div style="position:relative"><button type="button" class="plusbtn" data-act="plus">+1 punto</button>'+(popped?'<span class="plus1" style="right:20px">+1</span>':'')+'</div>';
- h+='<div class="st row" style="justify-content:space-between"><div><div class="lbl">Bronzo in questa gara</div><div class="t" style="font-size:34px">'+b+'</div></div><button type="button" class="btn sm alt" data-act="minus"'+(myB?'':' disabled')+'>−1 (errore)</button></div>';
+ h+='<div class="st row" style="justify-content:space-between"><div><div class="lbl">Bronzo in questa gara</div>'+(baseBz(r,i)?'<div class="mut" style="font-size:12px">Sisyphus parte con 4 fiche: −1 ogni volta che tiri 6.</div>':'')+'<div class="t" style="font-size:34px">'+b+'</div></div><button type="button" class="btn sm alt" data-act="minus"'+(b>0?'':' disabled')+'>−1 (errore)</button></div>';
  h+='<div class="row"><label for="f_snd" style="margin:0">Suono</label><select id="f_snd"><option value="random">A caso</option>'+FARTS.map(function(f,q){return '<option value="'+q+'">'+esc(f[0])+'</option>';}).join("")+'</select></div>';
  h+=handRow(i,'Ti restano in mano');
  return h+'</div>';
@@ -707,7 +707,7 @@ function vTut(){
  h+=step(4,'Prima: chi parte','<p class="tp"><b>Gara 1</b>: parte il giocatore estratto a caso nella pole position (lo vedi già durante il draft).</p><p class="tp"><b>Gare 2–4</b>: <b>l\'ultimo in classifica decide chi parte</b>. Si decide <b>prima</b> di scegliere i racer, così tutti scelgono sapendolo.</p>','#fff');
  h+=step(5,'Poi: quale racer corre','<p class="tp"><b>Gara 1</b>: si sceglie in senso orario a partire dal giocatore estratto nella pole position.</p><p class="tp"><b>Gare 2–4</b>: sceglie per primo <b>chi ha più punti</b>, poi gli altri in ordine di punteggio. Parità: prima chi ha fatto <b>meno rutti e scoregge</b>, poi chi ha usato la carta di livello più alto nella gara precedente, poi il caso. Le scelte sono visibili a tutti. Tocca il nome di un racer per leggerne l\'abilità.</p><p class="tp">Si gioca in senso orario con le regole normali: la gara finisce quando due atleti tagliano il traguardo.</p>','#d2f6e3');
  h+=step(6,'I punti','<div class="row" style="gap:8px;margin:0 0 10px">'+P.map(function(p,k){return '<span class="pill">G'+(k+1)+': 1° '+p[0]+' · 2° '+p[1]+'</span>';}).join("")+'</div><p class="tp"><span class="mini-b">+1</span> <b>Bronzo</b>: ogni casella stella e ogni potere che dà punti vale 1 punto. Lo segni tu con <b>+1 punto</b> sul telefono.</p><p class="tp"><b>I livelli cambiano</b>: a fine gara la carta che ha <b>vinto sale di un livello</b> e quella <b>arrivata ultima scende di uno</b> (pari all\'ultimo posto: sorteggio). I cambi restano per sempre, anche nelle partite successive.</p>','#ffe1d8');
- h+=step(7,'Fine e bonus','<p class="tp">Dopo la gara 4 ti resta 1 carta: vale punti in più secondo il suo livello.</p><div class="row" style="gap:8px;margin:6px 0 10px"><span class="pill" style="background:#ff7a59">S +2</span><span class="pill" style="background:#ffe14d">A +2</span><span class="pill" style="background:#7fb2ff">B +1</span><span class="pill" style="background:#6fe0a3">C +1</span><span class="pill" style="background:#ff9fd2">D 0</span></div><p class="tp">Vince chi ha più punti. Parità: <b>meno rutti e scoregge</b>, poi più vittorie, poi più bronzi. Il risultato finisce nello <b>storico</b>, con le statistiche di ogni giocatore.</p><p class="tp"><b>S.K.U.L.O.</b> (<i>Supremazia Konquistata Usando Lanci Onesti</i>): si parte tutti da 1500. A fine torneo ogni coppia di giocatori conta come uno scontro: chi ha fatto più punti vince, pari punti è pareggio. Battere chi ha lo S.K.U.L.O. più alto rende di più (K 24, doppio nei primi 3 tornei).</p>','#efe2ff');
+ h+=step(7,'Fine','<p class="tp">Dopo la gara 4 la carta che ti resta non dà punti. Vince chi ha più punti. Parità: <b>meno rutti e scoregge</b>, poi più vittorie, poi più bronzi. Il risultato finisce nello <b>storico</b>, con le statistiche di ogni giocatore.</p><p class="tp"><b>S.K.U.L.O.</b> (<i>Supremazia Konquistata Usando Lanci Onesti</i>): si parte tutti da 1500. A fine torneo ogni coppia di giocatori conta come uno scontro: chi ha fatto più punti vince, pari punti è pareggio. Battere chi ha lo S.K.U.L.O. più alto rende di più (K 24, doppio nei primi 3 tornei).</p>','#efe2ff');
  h+=step(8,'I tasti del telefono','<p class="tp"><b>Tocca a te</b>: il telefono suona e vibra quando devi scegliere.</p><p class="tp"><b>+1 punto</b>: per stelle e poteri, durante la gara. Sbagliato? C\'è il −1.</p><p class="tp"><b>Rutti e scoregge</b>: in basso, sempre disponibile. Lo sentono tutti, anche il tablet. Attenzione: <b>ogni pressione viene contata</b> e negli spareggi vince chi ne ha fatti di meno.</p>');
  h+='<button type="button" class="btn big acc" data-act="tutclose" style="align-self:center">Ho capito, si gioca!</button>';
  return h+'</div></div>';
@@ -892,8 +892,8 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "showhand":SHOWHAND=SHOWHAND===I?null:I;render();return;
  case "plus":case "minus":
   var r1=cur();if(!r1||r1.done||typeof ME!=="number")return;var ph1=phase(r1);if(ph1!=="race"&&ph1!=="result")return;var key=r1.id+"_"+ME;
-  if(a==="minus"&&!(BONUS[key]>0))return;
-  BONUS[key]=Math.max(0,(BONUS[key]||0)+(a==="plus"?1:-1));
+  if(a==="minus"&&!(effBz(r1,ME)>0))return;
+  BONUS[key]=Math.max(-baseBz(r1,ME),(BONUS[key]||0)+(a==="plus"?1:-1));
   if(a==="plus"){funny();popAt(key);}
   BE.incBonus(GAME.code,ME,r1.id,a==="plus"?1:-1);render();return;
  case "seat":
@@ -937,7 +937,7 @@ document.getElementById("app").addEventListener("click",function(ev){
  case "unw2":commit(function(o){var r=curOf(o);if(!r||r.w2===null||r.done)return false;r.w2=null;r.s=0;r.last=null;r.lastDraw=null;});delete SEEN[(cur()||{}).id+"s"];return;
  case "bz":
   var rb=cur();if(!rb)return;var extra=BONUS[rb.id+"_"+I]||0;
-  commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.bz[I]=Math.max(-extra,(r.bz[I]||0)+D);});
+  commit(function(o){var r=curOf(o);if(!r||r.done)return false;r.bz[I]=Math.max(-(extra+baseBz(r,I)),(r.bz[I]||0)+D);});
   if(D>0){funny();popAt(rb.id+"_"+I);}return;
  case "close":
   var CH=null,HX=null;commit(function(o){CH=null;var r=curOf(o);if(!r||r.w2===null||r.done)return false;var others=o.names.map(function(_,p){return p;}).filter(function(p){return p!==r.w1&&p!==r.w2;});if(others.length&&(r.last===null||r.last===undefined))return false;

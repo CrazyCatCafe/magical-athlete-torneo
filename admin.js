@@ -84,8 +84,8 @@ function suggestFromGame(code){
  var R=RAW[code]||{},g=R.g||{},st=R.st,rows=[];
  if(st&&st.started&&st.names&&st.names.length){
   var bon=g.bonus||{};
-  rows=st.names.map(function(n,i){var p=0;(st.races||[]).forEach(function(r){if(!r||!r.done)return;if(r.w1===i)p+=r.g||0;if(r.w2===i)p+=r.s||0;p+=Math.max(0,((r.bz&&r.bz[i])||0)+(((bon[i]||{})[r.id])||0));});
-   if(st.stage==="end"&&st.hands&&st.hands[i]&&st.hands[i][0])p+=tierBonusRaw(st,st.hands[i][0]);
+  rows=st.names.map(function(n,i){var p=0;(st.races||[]).forEach(function(r){if(!r||!r.done)return;if(r.w1===i)p+=r.g||0;if(r.w2===i)p+=r.s||0;p+=Math.max(0,((r.picks&&r.picks[i]==="Sisyphus")?4:0)+((r.bz&&r.bz[i])||0)+(((bon[i]||{})[r.id])||0));});
+   
    return {name:n,team:(st.teams&&st.teams[i])||"",p:p};});
  }else{var pm=g.players||{};rows=Object.keys(pm).map(function(k){return {name:(pm[k]||{}).name||"?",team:(pm[k]||{}).team||"",p:0};});}
  rows.sort(function(a,b){return b.p-a.p;});return rows;
