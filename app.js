@@ -344,21 +344,34 @@ function rosterBox(i,mine){
 function tierChanges(r){return r.tchg&&r.tchg.length?'<div class="st msg" style="margin-top:12px"><div class="lbl">Livelli cambiati</div><div class="row" style="margin-top:6px">'+r.tchg.map(function(c){return '<span class="pill" style="background:'+(TC[c.to]||'#e9e9f2')+'">'+esc(c.n)+' '+c.from+' → '+c.to+(TRANK[c.to]>TRANK[c.from]?' ▲':' ▼')+'</span>';}).join("")+'</div></div>':'';}
 
 /* ---------------- banco ---------------- */
+var FITB=false;
 function vBanco(){
- var h=modeBanner()+'<div class="top"><span class="logo t">Magical Outlet</span><span class="pill">Codice '+esc(GAME.code)+'</span><div class="grow"></div><nav class="tabs" aria-label="Sezioni">'+[["live","Diretta"],["board","Tabellone"],["cards","Carte"],["set","Impostazioni"]].map(function(t){return '<button type="button" class="btn sm" data-act="tab" data-v="'+t[0]+'"'+(TAB===t[0]?' aria-current="page"':'')+'>'+t[1]+'</button>';}).join("")+'<button type="button" class="btn sm" data-act="stats">Storico</button></nav></div>';
- if(msg)h+='<div class="st msg" role="status" style="margin-bottom:14px;font-weight:800">'+esc(msg)+'</div>';
- if(TAB==="board")h+='<div class="st"><h2 class="t" style="font-size:28px;margin-bottom:12px">Tabellone</h2>'+board()+'</div>';
- else if(TAB==="cards")h+=vCards();
- else if(TAB==="set")h+=vSet();
- else h+=vLive();
- h+='<p class="sync" style="margin-top:18px">'+(SYNC?'● Collegato':'○ Non collegato: controlla la connessione')+' · Questo dispositivo è il banco · <button type="button" class="btn sm alt" data-act="leave" style="min-height:36px">Esci</button></p>';
- return h;
+ FITB=document.body.classList.contains("fit");
+ var tabs=[["live","Diretta"],["board","Tabellone"],["cards","Carte"],["set","Impostazioni"]];
+ var nav='<nav class="tabs" aria-label="Sezioni">'+tabs.map(function(t){return '<button type="button" class="btn sm" data-act="tab" data-v="'+t[0]+'"'+(TAB===t[0]?' aria-current="page"':'')+'>'+t[1]+'</button>';}).join("")+'<button type="button" class="btn sm" data-act="stats">Storico</button></nav>';
+ var sync='<span class="sync">'+(SYNC?'● Collegato':'○ Non collegato')+'</span><button type="button" class="btn sm alt" data-act="leave" style="min-height:36px">Esci</button>';
+ if(!FITB){
+  var h=modeBanner()+'<div class="top"><span class="logo t">Magical Outlet</span><span class="pill">Codice '+esc(GAME.code)+'</span><div class="grow"></div>'+nav+'</div>';
+  if(msg)h+='<div class="st msg" role="status" style="margin-bottom:14px;font-weight:800">'+esc(msg)+'</div>';
+  if(TAB==="board")h+='<div class="st"><h2 class="t" style="font-size:28px;margin-bottom:12px">Tabellone</h2>'+board()+'</div>';
+  else if(TAB==="cards")h+=vCards();
+  else if(TAB==="set")h+=vSet();
+  else h+=vLive();
+  return h+'<p class="sync" style="margin-top:18px">'+(SYNC?'● Collegato':'○ Non collegato: controlla la connessione')+' · Questo dispositivo è il banco · <button type="button" class="btn sm alt" data-act="leave" style="min-height:36px">Esci</button></p>';
+ }
+ var h2='<div class="bshell">'+modeBanner()+'<header class="bhead"><span class="logo t">Magical Outlet</span><span class="pill">Codice '+esc(GAME.code)+'</span><div class="grow"></div>'+nav+sync+'</header>';
+ if(msg)h2+='<div class="st msg bmsg" role="status">'+esc(msg)+'</div>';
+ if(TAB==="board")h2+='<main class="bscroll"><div class="st"><h2 class="t" style="font-size:28px;margin-bottom:12px">Tabellone</h2>'+board()+'</div></main>';
+ else if(TAB==="cards")h2+='<main class="bscroll">'+vCards()+'</main>';
+ else if(TAB==="set")h2+='<main class="bscroll">'+vSet()+'</main>';
+ else h2+='<main class="bgrid"><aside class="bl"><div class="bcard"><div class="t bh">Classifica</div>'+vStand()+'</div>'+(finished()?'':infoBox(false))+'</aside><section class="bc">'+vLive()+'</section><aside class="br"><div class="bcard"><div class="t bh">Squadre <small>tocca un racer</small></div>'+vTeams()+'</div></aside></main>';
+ return h2+'</div>';
 }
 function poleCard(lbl,i,delay){return '<div class="st flip" style="animation-delay:'+delay+'ms;text-align:center;padding:20px"><div class="lbl">'+lbl+'</div><div style="margin:12px 0 6px">'+dot(i)+'</div><div class="t" style="font-size:32px">'+esc(S.names[i])+'</div><div class="mut">'+esc(teamOf(i))+'</div></div>';}
 function vLive(){
  var r=cur(),ph=phase(r),n=N(),k=S.races.length,h='';
  if(finished())return vEnd();
- h+='<div style="margin-bottom:16px">'+infoBox(true)+'</div>';
+ if(!FITB)h+='<div style="margin-bottom:16px">'+infoBox(true)+'</div>';
  if(S.stage==="pole"){
   var fl=once("pole");
   h+='<h2 class="t" style="font-size:40px;margin-bottom:14px">Pole position</h2><div class="grid">'+(fl?'':'')+poleCard('Parte nella gara 1',S.pole.start,0)+poleCard('Sceglie per primo il racer della gara 1',S.pole.reveal,400)+poleCard('Comincia il draft',S.pole.draft,800)+'</div>';
@@ -370,16 +383,17 @@ function vLive(){
   h+='<div class="row" style="margin-bottom:14px"><h2 class="t" style="font-size:36px">Sceglie <span class="name-tag">'+esc(S.names[who])+'</span></h2><span class="pill">Giro '+(d.round+1)+'/'+DRAFTS+'</span><span class="pill" style="background:var(--yel)">Gara 1: parte '+esc(S.names[S.pole.start])+'</span></div>';
   h+='<div style="margin-bottom:18px">'+orderStrip(d.order,d.picks)+'</div>';
   var fl2=once("dr"+d.round+(d.revealed[0]||""));
-  h+='<div class="grid">'+d.revealed.map(function(nm,q){var tk=tm[nm];return aCard(nm,{taken:tk!==undefined?S.names[tk]:null,flip:fl2,delay:q*140,btn:tk===undefined?'<button type="button" class="btn sm alt" data-act="drpick" data-n="'+esc(nm)+'" data-w="'+who+'">Scegli per '+esc(S.names[who])+'</button>':''});}).join("")+'</div>';
+  if(FITB)h+='<div class="grid2 bgcards">'+d.revealed.map(function(nm){var tk=tm[nm];return miniCard(nm,{by:tk!==undefined?S.names[tk]:null,act:tk===undefined?"drpick":null,w:who});}).join("")+'</div>';
+  else h+='<div class="grid">'+d.revealed.map(function(nm,q){var tk=tm[nm];return aCard(nm,{taken:tk!==undefined?S.names[tk]:null,flip:fl2,delay:q*140,btn:tk===undefined?'<button type="button" class="btn sm alt" data-act="drpick" data-n="'+esc(nm)+'" data-w="'+who+'">Scegli per '+esc(S.names[who])+'</button>':''});}).join("")+'</div>';
   if(np>0)h+='<p style="margin-top:16px"><button type="button" class="btn sm alt" data-act="drundo">Annulla l\'ultima scelta</button></p>';
   h+='<p class="mut" style="margin-top:12px">Ognuno sceglie dal proprio telefono. Chi non ha il telefono sceglie qui.</p>';
   return h;
  }
  if(ph==="none"||ph==="done"){
   h+='<div class="st row" style="gap:24px;align-items:center;padding:20px"><div class="grow stack" style="gap:8px"><span class="pill" style="align-self:flex-start">'+raceLabel(k)+'</span><h2 class="t" style="font-size:36px">'+(k===0?'Gara 1: parte '+esc(S.names[S.pole.start]):'Gara '+(k+1)+': l\'ultimo decide chi parte')+'</h2><div><button type="button" class="btn big acc" data-act="newrace">'+(k===0?'Inizia la scelta dei racer':'Inizia la gara '+(k+1))+'</button></div></div></div>';
-  if(k===0){var once0=once("rosters");h+='<h2 class="t" style="font-size:30px;margin:20px 0 12px">Le squadre</h2><div class="grid">'+S.names.map(function(_,i){return rosterBox(i);}).join("")+'</div>';}
+  if(k===0&&!FITB){var once0=once("rosters");h+='<h2 class="t" style="font-size:30px;margin:20px 0 12px">Le squadre</h2><div class="grid">'+S.names.map(function(_,i){return rosterBox(i);}).join("")+'</div>';}
   if(r&&r.done){h+=lastResult(r,k-1)+tierChanges(r);h+='<p style="margin:10px 0 0"><button type="button" class="btn sm alt" data-act="reopen">Riapri la gara '+k+' per correggere</button></p>';}
-  h+='<div class="st" style="margin-top:18px"><h2 class="t" style="font-size:26px;margin-bottom:12px">Tabellone</h2>'+board()+'</div>';
+  if(!FITB)h+='<div class="st" style="margin-top:18px"><h2 class="t" style="font-size:26px;margin-bottom:12px">Tabellone</h2>'+board()+'</div>';
   return h;
  }
  h+='<div class="row" style="margin-bottom:14px"><span class="pill">'+raceLabel(k-1)+'</span><span class="grow"></span><button type="button" class="btn sm alt" data-act="abort">Annulla gara</button></div>';
@@ -387,7 +401,8 @@ function vLive(){
   var npk=nPicks(r),who2=r.order[npk];
   h+='<div class="row" style="margin-bottom:14px"><h2 class="t" style="font-size:40px">Sceglie <span class="name-tag">'+esc(S.names[who2])+'</span></h2><span class="grow"></span><span class="pill" style="background:var(--yel);font-size:15px">Parte '+esc(S.names[r.first])+'</span>'+(r.k>0&&npk===0?'<button type="button" class="btn sm alt" data-act="unstart">Cambia chi parte</button>':'')+'</div>';
   h+='<div style="margin-bottom:18px">'+orderStrip(r.order,r.picks)+(r.why&&r.why.length?'<p class="mut" style="margin:10px 0 0">Pareggi: '+esc(r.why.join(" · "))+'.</p>':'')+'</div>';
-  h+='<div class="grid">'+r.order.filter(function(p){return r.picks[p]!==undefined;}).map(function(p){return aCard(r.picks[p],{btn:'<div class="row">'+dot(p)+'<b>'+esc(S.names[p])+'</b></div>'});}).join("")+'</div>';
+  if(FITB)h+=lineup(r);
+  else h+='<div class="grid">'+r.order.filter(function(p){return r.picks[p]!==undefined;}).map(function(p){return aCard(r.picks[p],{btn:'<div class="row">'+dot(p)+'<b>'+esc(S.names[p])+'</b></div>'});}).join("")+'</div>';
   h+='<div class="st" style="margin-top:16px"><div class="row"><span class="grow mut">'+esc(S.names[who2])+' sceglie dal telefono. Se non ce l\'ha, il banco può scegliere al suo posto (la sua mano diventa visibile a tutti).</span><button type="button" class="btn sm alt" data-act="showhand" data-i="'+who2+'">'+(SHOWHAND===who2?'Nascondi la mano':'Scegli al posto suo')+'</button></div>';
   if(SHOWHAND===who2)h+='<div class="row" style="margin-top:10px">'+(S.hands[who2]||[]).map(function(c){return '<button type="button" class="btn alt" data-act="selpick" data-n="'+esc(c)+'" data-w="'+who2+'">'+esc(c)+' · '+(tierOf(c)||'?')+'</button>';}).join("")+'</div>';
   h+='</div>';
@@ -401,9 +416,9 @@ function vLive(){
   return h;
  }
  var fo=clockwise(S,r.first);
- if(ph==="race")h+='<div class="row" style="margin-bottom:14px"><h2 class="t" style="font-size:40px">In gara!</h2></div>';
+ if(ph==="race"){if(!FITB)h+='<div class="row" style="margin-bottom:14px"><h2 class="t" style="font-size:40px">In gara!</h2></div>';}
  else h+=resultHead(r);
- h+='<div class="stack" style="gap:10px">'+fo.map(function(p){
+ h+='<div class="stack remlist'+(ph==="result"?' res':'')+(FITB&&n>6?' many':'')+'" style="gap:10px">'+fo.map(function(p){
   var nm=r.picks[p],a=abOf(nm),t=tierOf(nm),popped=POP[r.id+"_"+p]&&POP[r.id+"_"+p]>Date.now(),img=artOf(nm);
   return '<div class="rem" style="background:'+(TC[t]||'#e9e9f2')+'"><div class="who">'+dot(p)+'<span>'+esc(S.names[p])+'</span>'+(p===r.first?'<span class="first-badge">Parte</span>':'')+'</div>'+
    '<div class="ath">'+(img?'<img class="thumb" src="'+img+'" alt="">':'')+'<b>'+esc(nm)+'</b> <span class="mut">· '+(t||'?')+'</span><div>'+esc(a[1]||'')+'</div></div>'+
@@ -413,13 +428,14 @@ function vLive(){
  return h;
 }
 function resultHead(r){
+ if(FITB)return '<div class="st resline" style="padding:6px 12px"><span class="lbl">Arrivo</span><span class="row" style="gap:8px;flex-wrap:nowrap"><span class="disc g mini">'+r.g+'</span><b>'+esc(S.names[r.w1])+'</b><span class="mut">'+esc(r.picks[r.w1])+'</span></span>'+(r.w2!==null?'<span class="row" style="gap:8px;flex-wrap:nowrap"><span class="disc s mini">'+r.s+'</span><b>'+esc(S.names[r.w2])+'</b><span class="mut">'+esc(r.picks[r.w2])+'</span></span>':'')+'</div>';
  var h='<div class="st row" style="gap:22px;margin-bottom:16px;padding:18px 20px">';
  h+='<div class="row" style="gap:14px"><span class="disc g'+(once(r.id+"g")?' chipflip':'')+'">'+r.g+'</span><div><div class="lbl">1° posto</div><div class="t" style="font-size:30px">'+esc(S.names[r.w1])+'</div><div class="mut">'+esc(r.picks[r.w1])+'</div></div></div>';
  if(r.w2!==null)h+='<div class="row" style="gap:14px"><span class="disc s'+(once(r.id+"s")?' chipflip':'')+'">'+r.s+'</span><div><div class="lbl">2° posto</div><div class="t" style="font-size:30px">'+esc(S.names[r.w2])+'</div><div class="mut">'+esc(r.picks[r.w2])+'</div></div></div>';
  return h+'</div>';
 }
 function resultControls(r){
- var h='<div class="st" style="margin-top:18px">',k=S.races.length,P=pts(S)[r.k]||[0,0];
+ var h='<div class="st resctl" style="margin-top:18px">',k=S.races.length,P=pts(S)[r.k]||[0,0];
  if(r.w1===null){
   h+='<h3 class="t" style="font-size:26px;margin-bottom:10px">Chi è arrivato 1°?</h3><p class="mut" style="margin:0 0 10px">Prende '+P[0]+' punti.</p><div class="row">'+S.names.map(function(_,p){return '<button type="button" class="btn alt" data-act="w1" data-i="'+p+'">'+dot(p)+esc(S.names[p])+'</button>';}).join("")+'</div>';
  }else if(r.w2===null){
@@ -429,8 +445,8 @@ function resultControls(r){
   if(cands.length){
    h+='<h3 class="t" style="font-size:26px;margin-bottom:6px">Chi è arrivato ultimo?</h3>';
    if(!TIEMODE){
-    h+='<p class="mut" style="margin:0 0 10px">Tocca il giocatore arrivato ultimo. La sua carta scende di un livello, quella del vincitore sale di uno.</p>';
-    h+='<div class="row">'+cands.map(function(p){var on=r.last===p;return '<button type="button" class="btn '+(on?'acc':'alt')+'" data-act="pickLast" data-i="'+p+'" aria-pressed="'+on+'">'+dot(p)+esc(S.names[p])+' · '+esc(r.picks[p])+'</button>';}).join("")+'</div>';
+    if(!FITB)h+='<p class="mut" style="margin:0 0 10px">Tocca il giocatore arrivato ultimo. La sua carta scende di un livello, quella del vincitore sale di uno.</p>';
+    h+='<div class="row">'+cands.map(function(p){var on=r.last===p;return '<button type="button" class="btn '+(on?'acc':'alt')+'" data-act="pickLast" data-i="'+p+'" aria-pressed="'+on+'">'+dot(p)+esc(S.names[p])+(FITB&&N()>6?'':' · '+esc(r.picks[p]))+'</button>';}).join("")+'</div>';
     if(hasLast&&r.lastDraw&&r.lastDraw.length>1)h+='<p style="margin:10px 0 0;font-weight:800">Sorteggiato tra '+r.lastDraw.map(function(p){return esc(S.names[p]);}).join(", ")+'.</p>';
     h+='<p style="margin:12px 0 0"><button type="button" class="btn sm alt" data-act="tiemode">Pari all\'ultimo posto? Sorteggia</button></p>';
    }else{
@@ -440,9 +456,10 @@ function resultControls(r){
    }
   }
   var ready=!cands.length||hasLast;
-  if(ready)h+='<div class="st msg" style="margin-top:14px;box-shadow:none"><div class="lbl">Livelli che cambiano</div><div style="font-weight:800">'+tierPreview(r).join(' · ')+'</div></div>';
-  h+='<h3 class="t" style="font-size:24px;margin:16px 0 6px">Gara finita!</h3><p class="mut" style="margin:0">Controllate i bronzi qui sopra, poi chiudete la gara.'+(k===RACES?' Chiudendo l\'ultima gara si rivelano le carte bonus.':'')+'</p>';
-  h+='<div class="row" style="margin-top:16px"><button type="button" class="btn alt" data-act="unw2">Annulla il 2°</button><span class="grow"></span><button type="button" class="btn big acc" data-act="close"'+(ready?'':' disabled title="Prima indica chi è arrivato ultimo"')+'>Chiudi la gara</button></div>';
+  if(ready)h+='<div class="st msg" style="margin-top:'+(FITB?6:14)+'px;box-shadow:none;padding:'+(FITB?'6px 10px':'') +'"><div class="lbl">Livelli che cambiano</div><div style="font-weight:800">'+tierPreview(r).join(' · ')+'</div></div>';
+  if(FITB)h+='<p class="mut" style="margin:8px 0 0;font-size:13px"><b>Gara finita!</b> Controllate i bronzi, poi chiudete la gara.'+(k===RACES?' Chiudendo l\'ultima gara si rivelano le carte bonus.':'')+'</p>';
+  else h+='<h3 class="t fin" style="font-size:24px;margin:16px 0 6px">Gara finita!</h3><p class="mut" style="margin:0">Controllate i bronzi qui sopra, poi chiudete la gara.'+(k===RACES?' Chiudendo l\'ultima gara si rivelano le carte bonus.':'')+'</p>';
+  h+='<div class="row" style="margin-top:'+(FITB?8:16)+'px"><button type="button" class="btn alt" data-act="unw2">Annulla il 2°</button><span class="grow"></span><button type="button" class="btn big acc" data-act="close"'+(ready?'':' disabled title="Prima indica chi è arrivato ultimo"')+'>Chiudi la gara</button></div>';
  }
  return h+'</div>';
 }
@@ -455,25 +472,76 @@ function lastResult(r,ri){
  return h+'</div></div>';
 }
 function vEnd(){
- var rows=standings(),h='<div class="st" style="text-align:center;padding:24px"><span class="pill">Torneo concluso</span><h2 class="t" style="font-size:46px;margin:10px 0 4px">Vince '+esc(teamOf(rows[0].i))+'!</h2><p class="mut" style="margin:0 0 22px">'+esc(rows[0].n)+'</p><div class="podium">';
- var ord=[1,0,2],hgt=[150,200,115],col=["#d9dee9","#ffc83d","#e8a46b"];
+ var rows=standings(),h='<div class="st" style="text-align:center;padding:'+(FITB?'10px':'24px')+'"><span class="pill">Torneo concluso</span><h2 class="t" style="font-size:'+(FITB?32:46)+'px;margin:6px 0 2px">Vince '+esc(teamOf(rows[0].i))+'!</h2><p class="mut" style="margin:0 0 '+(FITB?8:22)+'px">'+esc(rows[0].n)+'</p><div class="podium">';
+ var ord=[1,0,2],hgt=FITB?[70,100,50]:[150,200,115],col=["#d9dee9","#ffc83d","#e8a46b"];
  ord.forEach(function(k,j){var x=rows[k];if(!x)return;h+='<div class="pod">'+dot(x.i)+'<div class="t" style="font-size:24px">'+esc(teamOf(x.i))+'</div><div class="mut">'+esc(x.n)+' · '+x.p+' punti</div><div class="blk" style="height:'+hgt[j]+'px;background:'+col[j]+'">'+(k+1)+'</div></div>';});
  h+='</div></div>';
  if(S.tid&&eloNow().per[S.tid])h+='<div class="st" style="margin-top:18px"><div class="lbl">S.K.U.L.O. dopo questo torneo</div><div class="row" style="gap:8px;margin-top:8px">'+rows.map(function(x){var e=eloInfo(S.tid,x.n);return e?'<span class="pill">'+esc(x.n)+' '+e.a+' <span class="elod'+(e.d>0?' up':(e.d<0?' dn':''))+'">'+eloTxt(e.d)+'</span></span>':'';}).join("")+'</div></div>';
  var fl=once("finalcards");
  var aw=awards();
  if(aw.length)h+='<div class="grid" style="margin-top:18px">'+aw.map(function(a){return '<div class="st award"><span class="disc b mini" aria-hidden="true">★</span><div><div class="lbl">'+esc(a[0])+'</div><div style="font-weight:800">'+esc(a[1])+'</div></div></div>';}).join("")+'</div>';
- h+='<div class="st" style="margin-top:18px">'+board()+'</div>';
+ if(!FITB)h+='<div class="st" style="margin-top:18px">'+board()+'</div>';
  h+='<div class="stack" style="margin-top:18px;gap:10px">'+shareBtn("end")+statsBtn()+'</div>';
  return h;
 }
 
 /* ---------------- player ---------------- */
+/* ---------------- v7: layout senza scorrimento + ispettore dei racer ---------------- */
+var PTAB="gara",INSP=null;
+var ICO={'gara': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h12l-2 4 2 4H5"/></svg>', 'squadre': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 15c3 0 6 1.5 6 5"/></svg>', 'class': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>', 'altro': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>'};
+function teamList(i){var out=[],r=cur();S.races.forEach(function(R){var c=R.picks&&R.picks[i];if(c)out.push({n:c,st:(R===r&&!R.done)?"race":"used"});});(S.hands[i]||[]).forEach(function(c){out.push({n:c,st:""});});return out;}
+function inspSel(){var s=INSP;if(s&&s.i<S.names.length&&teamList(s.i).some(function(x){return x.n===s.n;}))return s;var m=typeof ME==="number"?ME:0,r=cur(),c=r&&!r.done&&r.picks&&r.picks[m];if(!c){var tl=teamList(m);c=tl.length?tl[0].n:null;}return c?{i:m,n:c}:null;}
+function inspPanel(){var s=inspSel();if(!s)return '';var n=s.n,t=tierOf(n),a=abOf(n),img=artOf(n),col=TC[t]||'#e9e9f2';
+ return '<div class="insp"><div class="ih">'+(img?'<img src="'+img+'" alt="">':'<span class="noimg" style="background:'+col+'">'+esc(n.charAt(0))+'</span>')+'<div class="grow" style="min-width:0"><div class="in"><b>'+esc(n)+'</b><span class="tierb sm" style="background:'+col+'">'+(t||'?')+'</span></div><div class="mut" style="font-size:12px">squadra di '+esc(S.names[s.i])+'</div></div></div>'+(a[0]?'<div class="pw">'+esc(a[0])+'</div>':'')+'<p>'+esc(a[1]||'Abilità non inserita.')+'</p></div>';}
+function vTeams(){
+ var sel=inspSel(),r=cur();
+ return '<div class="teams'+(S.names.length>6?' c3':'')+'">'+S.names.map(function(nm,i){var tl=teamList(i);
+  return '<div class="tm'+(i===ME?' mi':'')+'"><div class="th">'+dot(i)+'<b>'+esc(nm)+'</b><span class="pp">'+totals(S).p[i]+' pt</span></div>'+
+   tl.map(function(x){var t=tierOf(x.n),on=sel&&sel.i===i&&sel.n===x.n;return '<button type="button" class="rc'+(on?' on':'')+(x.st==="used"?' used':'')+'" data-act="insp" data-i="'+i+'" data-n="'+esc(x.n)+'"><span class="sq" style="background:'+(TC[t]||'#e9e9f2')+'"></span><span class="rn">'+esc(x.n)+'</span>'+(x.st==="race"?'<span class="fl">🏁</span>':'')+'</button>';}).join("")+'</div>';}).join("")+'</div>'+inspPanel();
+}
+function lineup(r){
+ var sel=phase(r)==="sel",ord=sel?r.order:clockwise(S,r.first);
+ return '<div class="lineup'+(S.names.length>6?' dense':'')+'">'+ord.map(function(p){var nm=r.picks[p],me=p===ME;
+  if(nm===undefined)return '<div class="lr wait">'+dot(p)+'<span class="grow mut">'+esc(S.names[p])+' sceglie…</span></div>';
+  var t=tierOf(nm),a=abOf(nm),img=artOf(nm),col=TC[t]||'#e9e9f2';
+  return '<button type="button" class="lr'+(me?' mi':'')+'" data-act="card" data-n="'+esc(nm)+'"><span class="lw">'+dot(p)+(p===r.first&&!sel?'<small>PARTE</small>':'')+'</span>'+(img?'<img src="'+img+'" alt="">':'<span class="noimg" style="background:'+col+'">'+esc(nm.charAt(0))+'</span>')+'<span class="lt"><span class="ln"><b>'+esc(nm)+'</b><span class="tierb sm" style="background:'+col+'">'+(t||'?')+'</span></span><span class="la">'+esc(a[1]||'')+'</span></span><span class="lchev">›</span></button>';}).join("")+'</div>';}
+function raceCtl(r,i){var b=effBz(r,i),popped=POP[r.id+"_"+i]&&POP[r.id+"_"+i]>Date.now();
+ return '<div class="ctl"><div class="bzb"><div class="lbl">Bronzo</div><div class="t">'+b+'</div></div><div class="pbw"><button type="button" class="plusbtn2" data-act="plus">+1 punto</button>'+(popped?'<span class="plus1" style="right:20px">+1</span>':'')+'</div><button type="button" class="btn alt minus" data-act="minus"'+(b>0?'':' disabled')+' aria-label="Togli un punto">−1</button></div>'+(baseBz(r,i)?'<div class="mut" style="font-size:12px;margin-top:-4px">Sisyphus parte con 4 fiche: −1 ogni volta che tiri 6.</div>':'');}
+function vStand(){
+ var rows=standings(),P=pts(S),ri=S.races.length-1,r=cur();
+ var h='<div class="stand"><div class="srow sh"><span></span><span></span>';
+ for(var k=0;k<RACES;k++)h+='<span>G'+(k+1)+'<small>'+P[k][0]+'/'+P[k][1]+'</small></span>';
+ h+='<span>Tot</span></div>';
+ rows.forEach(function(x,pos){
+  h+='<div class="srow'+(x.i===ME?' mi':'')+'"><b class="sp">'+(pos+1)+'</b><span class="sn">'+dot(x.i)+'<span class="snt"><b>'+esc(teamOf(x.i))+'</b><small>'+esc(x.n)+' · 💨 '+x.f+'</small></span></span>';
+  for(var k2=0;k2<RACES;k2++){var R=S.races[k2],c='';
+   if(R){if(R.w1===x.i)c+='<span class="disc g mini">'+R.g+'</span>';if(R.w2===x.i)c+='<span class="disc s mini">'+R.s+'</span>';var b=effBz(R,x.i);if(b)c+='<span class="mini-b">+'+b+'</span>';if(!c&&R.done)c='<span class="empty">0</span>';}
+   if(!c)c='<span class="empty">·</span>';
+   h+='<span class="sc'+(k2===ri&&r&&!r.done?' cur':'')+'">'+c+'</span>';}
+  h+='<b class="stt">'+x.p+'</b></div>';});
+ return h+'</div>';
+}
+function vMore(){
+ var R=rosterNow(),h='<div class="more2"><div class="lbl">Tutti i racer · tocca per l\'abilità</div>';
+ ["S","A","B","C","D","E"].forEach(function(T){var L=R.filter(function(x){return x.t===T;}).sort(function(a,b){return String(a.n).localeCompare(String(b.n),"it");});if(!L.length)return;
+  h+='<div class="trow"><span class="tk" style="background:'+(TC[T]||'#e9e9f2')+'">'+T+'</span><span class="tchips">'+L.map(function(x){return '<button type="button" class="tch" data-act="card" data-n="'+esc(x.n)+'" style="background:'+(TC[T]||'#e9e9f2')+'">'+esc(x.n)+'</button>';}).join("")+'</span></div>';});
+ h+='</div><div class="mrow"><button type="button" class="btn sm alt" data-act="tut">Regole</button><button type="button" class="btn sm alt" data-act="stats">Storico</button>';
+ if(typeof ME==="number")h+='<select id="f_snd" aria-label="Suono"><option value="random">Suono a caso</option>'+FARTS.map(function(f,q){return '<option value="'+q+'">'+esc(f[0])+'</option>';}).join("")+'</select>';
+ return h+'<button type="button" class="btn sm alt" data-act="leave">Esci</button></div>';}
 function vPlayer(){
- var i=ME,n=N(),r=cur(),ph=phase(r),rows=standings(),pos=0,pts0=0,k=S.races.length;rows.forEach(function(x,q){if(x.i===i){pos=q+1;pts0=x.p;}});
- var h='<div class="ph stack">'+modeBanner()+'<div class="me">'+dot(i)+'<div class="grow"><div class="t" style="font-size:26px;line-height:1">'+esc(teamOf(i))+'</div><div class="mut">'+esc(S.names[i])+' · '+pts0+' punti · '+pos+'° · 💨 '+fartsOf(S,i)+' · '+esc(GAME.code)+'</div></div><button type="button" class="btn sm alt" data-act="leave">Esci</button></div>';
- if(msg)h+='<div class="st msg" role="status" style="font-weight:800">'+esc(msg)+'</div>';
- if(!SYNC&&!BE.local)h+='<div class="banner">Connessione persa: riprovo…</div>';
+ var i=ME,rows=standings(),pos=0,pts0=0;rows.forEach(function(x,q){if(x.i===i){pos=q+1;pts0=x.p;}});
+ var r=cur(),ph=phase(r),k=S.races.length,mine=myTurnNow(i);
+ var body=PTAB==="squadre"?vTeams():(PTAB==="class"?vStand():(PTAB==="altro"?vMore():vGara()));
+ var label=finished()?'Finito':(S.stage==="pole"?'Pole':(S.stage==="draft"?'Draft':(k?'Gara '+k+'/'+RACES:'Squadre')));
+ var h='<div class="pshell">'+modeBanner()+'<div class="phead">'+dot(i)+'<div class="grow" style="min-width:0"><div class="t pt1">'+esc(teamOf(i))+'</div><div class="mut pt2">'+esc(S.names[i])+' · '+pts0+' punti · '+pos+'° · 💨 '+fartsOf(S,i)+'</div></div><span class="chipy">'+label+'</span>'+fartMini()+'</div>';
+ if(msg)h+='<div class="st msg pmsg" role="status">'+esc(msg)+'</div>';
+ if(!SYNC&&!BE.local)h+='<div class="banner" style="margin:0">Connessione persa: riprovo…</div>';
+ h+='<main class="pmain">'+body+'</main><nav class="pnav" aria-label="Sezioni">'+[["gara","Gara"],["squadre","Squadre"],["class","Classifica"],["altro","Altro"]].map(function(t){return '<button type="button" class="'+(PTAB===t[0]?'on':'')+'" data-act="ptab" data-v="'+t[0]+'"'+(PTAB===t[0]?' aria-current="page"':'')+'>'+ICO[t[0]]+t[1]+(t[0]==="gara"&&mine&&PTAB!=="gara"?'<i class="pip"></i>':'')+'</button>';}).join("")+'</nav></div>';
+ return h;
+}
+function vGara(){
+ var i=ME,n=N(),r=cur(),ph=phase(r),rows=standings(),pos=0,k=S.races.length;rows.forEach(function(x,q){if(x.i===i){pos=q+1;}});
+ var h='<div class="ph stack gara">';
  if(finished()){var w=rows[0],c=(S.hands[i]||[])[0];return h+'<div class="st turn"><h2 class="t" style="font-size:32px">Torneo finito!</h2><p style="margin:4px 0 0;font-weight:800">Vince '+esc(teamOf(w.i))+' con '+w.p+' punti. Tu sei '+pos+'°.</p>'+(function(){var e=S.tid&&eloInfo(S.tid,S.names[i]);return e?'<p style="margin:6px 0 0;font-weight:900">S.K.U.L.O. '+e.a+' ('+eloTxt(e.d)+')</p>':'';})()+'</div>'+'<p class="mut">Guarda il podio sul tablet.</p>'+statsBtn()+'</div>';}
  if(S.stage==="pole"){
   var you=[];if(S.pole.start===i)you.push('parti tu nella gara 1');if(S.pole.reveal===i)you.push('scegli per primo il racer della gara 1');if(S.pole.draft===i)you.push('cominci tu il draft');
@@ -515,21 +583,17 @@ function vPlayer(){
  }
  var b=effBz(r,i),popped=POP[r.id+"_"+i]&&POP[r.id+"_"+i]>Date.now(),myB=BONUS[r.id+"_"+i]||0;
  if(ph==="result"){
-  h+='<div class="st"><div class="row"><span class="disc g mini">'+r.g+'</span><b>1° '+esc(S.names[r.w1])+'</b></div>';
-  if(r.w2!==null)h+='<div class="row" style="margin-top:6px"><span class="disc s mini">'+r.s+'</span><b>2° '+esc(S.names[r.w2])+'</b></div>';
+  h+='<div class="st resline"><span class="row" style="gap:6px;flex-wrap:nowrap"><span class="disc g mini">'+r.g+'</span><b>'+esc(S.names[r.w1])+'</b></span>'+(r.w2!==null?'<span class="row" style="gap:6px;flex-wrap:nowrap"><span class="disc s mini">'+r.s+'</span><b>'+esc(S.names[r.w2])+'</b></span>':'');
   h+='</div>';
  }else h+='<p class="mut" style="margin:0">'+esc(startText(r))+'</p>';
- h+=aCard(r.picks[i]);
- h+='<div style="position:relative"><button type="button" class="plusbtn" data-act="plus">+1 punto</button>'+(popped?'<span class="plus1" style="right:20px">+1</span>':'')+'</div>';
- h+='<div class="st row" style="justify-content:space-between"><div><div class="lbl">Bronzo in questa gara</div>'+(baseBz(r,i)?'<div class="mut" style="font-size:12px">Sisyphus parte con 4 fiche: −1 ogni volta che tiri 6.</div>':'')+'<div class="t" style="font-size:34px">'+b+'</div></div><button type="button" class="btn sm alt" data-act="minus"'+(b>0?'':' disabled')+'>−1 (errore)</button></div>';
- h+='<div class="row"><label for="f_snd" style="margin:0">Suono</label><select id="f_snd"><option value="random">A caso</option>'+FARTS.map(function(f,q){return '<option value="'+q+'">'+esc(f[0])+'</option>';}).join("")+'</select></div>';
- h+=handRow(i,'Ti restano in mano');
+ h+=lineup(r);
+ h+=raceCtl(r,i);
  return h+'</div>';
 }
 var SHOWHAND=null,CONFIRM=null,FARTSEEN=null,FARTTOAST=null,SHEET=null,TEAMBAR=false,FARTMINI=false;
 /* carta compatta (2 colonne) e scheda dal basso */
 function miniCard(n,o){o=o||{};var t=tierOf(n),a=abOf(n),img=artOf(n),by=o.by;
- return '<button type="button" class="mc'+(by!=null?' taken':'')+'" data-act="sheet" data-n="'+esc(n)+'"'+(o.act?' data-a="'+o.act+'"':'')+(by!=null?' data-by="presa da '+esc(by)+'"':'')+' aria-label="'+esc(n)+(by!=null?', presa da '+esc(by):'')+'">'+
+ return '<button type="button" class="mc'+(by!=null?' taken':'')+'" data-act="sheet" data-n="'+esc(n)+'"'+(o.act?' data-a="'+o.act+'"':'')+(o.w!==undefined?' data-w="'+o.w+'"':'')+(by!=null?' data-by="presa da '+esc(by)+'"':'')+' aria-label="'+esc(n)+(by!=null?', presa da '+esc(by):'')+'">'+
   (img?'<img src="'+img+'" alt="">':'<span class="noimg" style="background:'+(TC[t]||'#e9e9f2')+'">'+esc(n.charAt(0))+'</span>')+'<span class="tb" style="background:'+(TC[t]||'#e9e9f2')+'">'+(t||'?')+'</span><span class="nm2">'+esc(n)+'</span><span class="ab2">'+esc(a[1]||'')+'</span></button>';}
 function orderDots(order,np,me){return '<div class="order2"><span class="lbl" style="margin-right:2px">Ordine</span>'+order.map(function(p,k){return '<span class="odot'+(k<np?' done':'')+(k===np?' now':'')+(p===me?' me':'')+'" style="background:'+pcol(p)+'" title="'+esc(S.names[p])+'">'+esc(ini(S.names,p))+'</span>';}).join("")+'</div>';}
 function turnBar(mine,txt,sub){return mine?'<div class="turn2"><b class="grow">Tocca a te!</b><span>'+esc(sub||'tocca una carta')+'</span></div>':'<div class="wait2">'+txt+'</div>';}
@@ -538,15 +602,16 @@ function teamBar(i,hl){TEAMBAR=true;var h=S.hands[i]||[],slots=[];for(var q=0;q<
 function vSheet(){var n=SHEET.n,t=tierOf(n),a=abOf(n),img=artOf(n),act=SHEET.a;var lbl=act==="drpick"?'Prendi '+esc(n):(act==="selpick"?'Gioca '+esc(n):'');
  return '<div class="tut cardmodal sheetm" role="dialog" aria-modal="true" aria-label="'+esc(n)+'" data-act="sheetclose"><div class="sheet"><div class="grab"></div>'+(img?'<img src="'+img+'" alt="">':'')+
   '<h3>'+esc(n)+' <span class="tierb" style="background:'+(TC[t]||'#e9e9f2')+'">'+(t||'?')+'</span></h3>'+(a[0]?'<div class="pw">'+esc(a[0])+'</div>':'')+'<p>'+esc(a[1]||'Abilità non inserita.')+'</p>'+
-  '<div class="row" style="gap:8px"><button type="button" class="btn alt" data-act="sheetclose" style="flex:1">Chiudi</button>'+(lbl?'<button type="button" class="btn acc big" style="flex:2" data-act="'+act+'" data-n="'+esc(n)+'" data-w="'+ME+'"'+(BUSY?' disabled':'')+'>'+lbl+'</button>':'')+'</div></div></div>';}
+  '<div class="row" style="gap:8px"><button type="button" class="btn alt" data-act="sheetclose" style="flex:1">Chiudi</button>'+(lbl?'<button type="button" class="btn acc big" style="flex:2" data-act="'+act+'" data-n="'+esc(n)+'" data-w="'+(SHEET.w!==undefined&&SHEET.w!==null?SHEET.w:ME)+'"'+(BUSY?' disabled':'')+'>'+lbl+'</button>':'')+'</div></div></div>';}
 
 function fartKey(){return (GAME&&GAME.name?GAME.name:"x").toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,24)||"x";}
+function fartMini(){return '<button type="button" class="fartmini" data-act="fart" aria-label="Rutto o scoreggia: lo sentono tutti, anche sul tablet. Conta negli spareggi">💨</button>';}
 function fartBtn(){return '<div class="fartdock'+(TEAMBAR?' up mini':(FARTMINI?' mini':''))+'"><button type="button" class="fartbtn" data-act="fart" aria-label="Rutto o scoreggia: lo sentono tutti, anche sul tablet. Conta negli spareggi"><svg viewBox="0 0 52 34" width="44" height="29" fill="none" stroke="#14121f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h9M1.5 17h7M3 23h9"/><path d="M19 27a6 6 0 0 1 .5-12 9 9 0 0 1 16.5-3 7.5 7.5 0 0 1 7 11.5A5.5 5.5 0 0 1 38 30H22.5A5 5 0 0 1 19 27z" fill="#ffffff"/><circle cx="29" cy="20" r="1.6" fill="#14121f" stroke="none"/><circle cx="35" cy="20" r="1.6" fill="#14121f" stroke="none"/></svg><span>Rutti e scoregge</span></button></div>';}
 function freeFart(){var k=parseInt(SND,10);if(isNaN(k)||!FARTS[k])k=Math.floor(Math.random()*FARTS.length);playClip(FARTS[k][1]);if(GAME&&BE)BE.sendFart(GAME.code,fartKey(),{clip:FARTS[k][1],name:GAME.name,n:Math.random()}).catch(function(){});}
 function fartToast(){return FARTTOAST&&FARTTOAST.until>Date.now()?'<div class="farttoast" role="status">💨 '+esc(FARTTOAST.name)+'</div>':'';}
 function checkTurn(){
  var m=me();if(typeof m!=="number")return;var now=myTurnNow(m);
- if(prevTurn===false&&now){try{window.scrollTo(0,0);}catch(e){}ding();try{navigator.vibrate&&navigator.vibrate([150,80,150]);}catch(e){}}
+ if(prevTurn===false&&now){PTAB="gara";try{window.scrollTo(0,0);}catch(e){}ding();try{navigator.vibrate&&navigator.vibrate([150,80,150]);}catch(e){}}
  prevTurn=now;
 }
 function popAt(key){POP[key]=Date.now()+1500;setTimeout(safeRender,1600);}
@@ -723,13 +788,13 @@ function render(){
  document.querySelectorAll("#app input,#app textarea").forEach(function(e){if(e.id)vals[e.id]=e.value;});var pk0=document.getElementById("f_pick");if(pk0)PICKSEL=pk0.value;
  var tutEl=document.querySelector(".tut:not(.cardmodal)"),tutTop=tutEl?tutEl.scrollTop:0;
  var m=flipCapture();pendingSeen=[];TEAMBAR=false;FARTMINI=false;var html;
+ document.body.classList.toggle("fit",!!(GAME&&S&&S.started&&(typeof ME==="number"||(ME==="banco"&&window.innerWidth>=900))));
  if(!GAME)html=vHome();
  else if(!S)html='<div class="home stack"><span class="logo t">Magical Outlet</span><div class="st">Collegamento alla partita '+esc(GAME.code)+'…</div><button type="button" class="btn alt" data-act="leave">Annulla</button></div>';
  else if(!S.started)html=GAME.role==="banco"?vLobbyHost():vLobbyPlayer();
  else if(ME==="banco")html=vBanco();
  else if(ME==="out")html=vOut();
  else html=vPlayer();
- if(GAME&&GAME.role==="player"&&S)html+=fartBtn();
  if(GAME&&GAME.role==="banco")html=fartToast()+html;
  if(CONFIRM==="leave")html=html.replace(/(data-act="leave"[^>]*>)[^<]*</g,'$1Tocca ancora per uscire<');
  if(CONFIRM==="tierreset")html=html.replace(/(data-act="tierreset"[^>]*>)[^<]*</g,'$1Tocca ancora per ripristinare<');
@@ -862,12 +927,14 @@ document.getElementById("app").addEventListener("click",function(ev){
  switch(a){
  case "create":createGame();return;
  case "leave":if(CONFIRM!=="leave"&&S&&S.started){askConfirm("leave");return;}CONFIRM=null;leave();return;
+ case "ptab":PTAB=t.getAttribute("data-v");render();return;
+ case "insp":INSP={i:parseInt(t.getAttribute("data-i"),10),n:t.getAttribute("data-n")};render();return;
  case "tab":TAB=t.getAttribute("data-v");confirmReset=false;render();return;
  case "fart":freeFart();return;
  case "tut":TUT=true;render();try{var tt=document.querySelector(".tut");if(tt){tt.scrollTop=0;var cb=tt.querySelector("[data-act=tutclose]");cb&&cb.focus();}}catch(e){}return;
  case "tutclose":TUT=false;render();return;
  case "card":if(!NM)return;CARDV=NM;render();return;
- case "sheet":if(!NM)return;SHEET={n:NM,a:t.getAttribute("data-a")};render();return;
+ case "sheet":if(!NM)return;SHEET={n:NM,a:t.getAttribute("data-a"),w:t.getAttribute("data-w")};render();return;
  case "sheetclose":if(ev.target.closest(".sheet")&&!ev.target.closest("button"))return;SHEET=null;CARDV=null;render();return;
  case "cardclose":if(ev.target.closest(".cm-in")&&!ev.target.closest("button"))return;CARDV=null;render();return;
  case "stats":STATSV=true;render();try{var sx=document.querySelector(".tut");if(sx)sx.scrollTop=0;}catch(e){}return;
